@@ -490,7 +490,9 @@
   .member-chip .kick-btn:hover { background: var(--danger-tint); }
   .member-chip.kicked { opacity: 0; transform: scale(0.9); transition: opacity 0.2s ease, transform 0.2s ease; }
 
-  /* Shared avatar base — size/context set per usage, color set by .avatar-<name> */
+  /* Shared avatar base — size/context set per usage, color set by .avatar-<name>.
+     position/overflow let any avatar show an uploaded photo, not just the
+     profile corner button's — the "You" avatar can appear anywhere. */
   .avatar {
     display: inline-flex;
     align-items: center;
@@ -500,6 +502,8 @@
     font-weight: 700;
     color: #fff;
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
   }
   .member-chip .avatar { width: 26px; height: 26px; font-size: 11px; }
   .waiting-row .avatar { width: 24px; height: 24px; font-size: 10.5px; }
@@ -548,6 +552,11 @@
     padding: 12px;
     background: var(--surface-2);
     border-radius: var(--radius-md);
+  }
+  #waitingRows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .waiting-list-title {
     font-family: var(--font-sans);
@@ -937,7 +946,6 @@
   }
   .profile-avatar-sm { width: 40px; height: 40px; font-size: 15px; }
   .profile-avatar-lg { width: 56px; height: 56px; font-size: 20px; flex-shrink: 0; }
-  .avatar.profile-avatar-sm, .avatar.profile-avatar-lg { position: relative; overflow: hidden; }
   .avatar-photo {
     position: absolute;
     inset: 0;
@@ -1258,9 +1266,7 @@
 
           <div class="waiting-list waiting-overlay" id="waitingOverlay" style="display:none;">
             <div class="waiting-list-title">Waiting on the group&hellip;</div>
-            <div class="waiting-row" data-name="Mia"><span class="avatar avatar-mia">M</span>Mia<span class="wait-status">&hellip;</span></div>
-            <div class="waiting-row" data-name="Lukas"><span class="avatar avatar-lukas">L</span>Lukas<span class="wait-status">&hellip;</span></div>
-            <div class="waiting-row" data-name="Finn"><span class="avatar avatar-finn">F</span>Finn<span class="wait-status">&hellip;</span></div>
+            <div id="waitingRows"></div>
           </div>
 
           <button class="guess-toggle-btn" id="guessToggleBtn" type="button" aria-label="Show players to guess">
@@ -1269,11 +1275,7 @@
 
           <div class="guess-sheet" id="guessSheet">
             <div class="lineup-note">Who liked it?</div>
-            <div class="lineup" id="lineup">
-              <button class="suspect-row" data-name="Lukas"><span class="avatar avatar-lukas">L</span>Lukas<span class="result-icon"></span></button>
-              <button class="suspect-row" data-name="Mia"><span class="avatar avatar-mia">M</span>Mia<span class="result-icon"></span></button>
-              <button class="suspect-row" data-name="Finn"><span class="avatar avatar-finn">F</span>Finn<span class="result-icon"></span></button>
-            </div>
+            <div class="lineup" id="lineup"></div>
           </div>
         </div>
 
@@ -1491,37 +1493,96 @@
     goToTab(targetTabId);
   }
 
-  const SOLO_MEMBER_LIST = `<div class="member-chip"><span class="avatar avatar-you">Y</span>You&nbsp;<span class="role-badge role-organizer">Organizer</span></div>`;
+  // Demo cast a joined lobby draws its 3 "other members" from — picked per lobby
+  // code (see membersForCode) so different lobbies don't all look identical.
+  const DEMO_POOL = ['Mia', 'Lukas', 'Finn', 'Priya', 'Sam'];
+
+  // Deterministic, not random: the same code always picks the same 3 people,
+  // so rejoining a lobby doesn't reshuffle who's supposedly in it.
+  function membersForCode(code) {
+    let seed = 0;
+    for (let i = 0; i < code.length; i++) seed += code.charCodeAt(i) * (i + 1);
+    const pool = DEMO_POOL.slice();
+    const picked = [];
+    while (picked.length < 3 && pool.length) {
+      picked.push(pool.splice((seed + picked.length * 13) % pool.length, 1)[0]);
+    }
+    return picked;
+  }
+
+  // Your own avatar wherever it's rendered dynamically (member chips, standings) —
+  // shows your uploaded photo if you've set one, otherwise your initial.
+  function youAvatarHTML() {
+    const photo = localStorage.getItem(PHOTO_KEY);
+    const initial = (profileNameInput.value || 'You').charAt(0).toUpperCase();
+    return photo
+      ? `<span class="avatar avatar-you"><img class="avatar-photo" src="${photo}" alt=""></span>`
+      : `<span class="avatar avatar-you">${initial}</span>`;
+  }
+
   // Every member sees the same code (it's in the header badge, not hidden per-role),
   // and the Organizer gets a Kick (×) button on everyone else's chip.
-  const DEMO_MEMBER_LIST = `<div class="member-chip"><span class="avatar avatar-you">Y</span>You&nbsp;<span class="role-badge role-organizer">Organizer</span></div>
-    <div class="member-chip"><span class="avatar avatar-mia">M</span>Mia<button class="kick-btn" data-kick-name="Mia" title="Kick Mia">&times;</button></div>
-    <div class="member-chip"><span class="avatar avatar-lukas">L</span>Lukas<button class="kick-btn" data-kick-name="Lukas" title="Kick Lukas">&times;</button></div>
-    <div class="member-chip"><span class="avatar avatar-finn">F</span>Finn<button class="kick-btn" data-kick-name="Finn" title="Kick Finn">&times;</button></div>`;
+  function buildMemberListHTML(members) {
+    const youChip = `<div class="member-chip">${youAvatarHTML()}You&nbsp;<span class="role-badge role-organizer">Organizer</span></div>`;
+    const otherChips = members.map(name =>
+      `<div class="member-chip"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}<button class="kick-btn" data-kick-name="${name}" title="Kick ${name}">&times;</button></div>`
+    ).join('\n    ');
+    return members.length ? `${youChip}\n    ${otherChips}` : youChip;
+  }
+
+  // The lineup you vote on and the "waiting on the group" checklist always show
+  // the same 3 people currently in the game, whether that's this lobby's real
+  // demo cast (joined lobby) or the generic fallback cast (freshly created,
+  // solo lobby — there's no one else to draw a real cast from yet).
+  function renderLineupAndWaiting(members) {
+    document.getElementById('lineup').innerHTML = members.map(name =>
+      `<button class="suspect-row" data-name="${name}"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}<span class="result-icon"></span></button>`
+    ).join('');
+    rows = document.querySelectorAll('#lineup .suspect-row');
+    rows.forEach(row => {
+      row.addEventListener('click', () => {
+        if (picked) return;
+        picked = row.dataset.name;
+        lockInGuess();
+      });
+    });
+
+    document.getElementById('waitingRows').innerHTML = members.map(name =>
+      `<div class="waiting-row" data-name="${name}"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}<span class="wait-status">&hellip;</span></div>`
+    ).join('');
+  }
 
   function enterLobby(code) {
     currentLobbyCode = code;
     const card = document.querySelector(`.lobby-card[data-code="${code}"]`);
     const name = card ? card.querySelector('.lobby-card-name').textContent : `Lobby #${code}`;
     const isFresh = card && card.dataset.fresh === 'true';
+    const demoMembers = isFresh ? [] : membersForCode(code);
+    currentGameMembers = demoMembers.length ? demoMembers : DEMO_POOL.slice(0, 3);
     document.getElementById('lobbyHeaderName').textContent = name;
     document.getElementById('lobbyCodeBadge').textContent = `CODE: ${code}`;
-    document.getElementById('waitingMemberList').innerHTML = isFresh ? SOLO_MEMBER_LIST : DEMO_MEMBER_LIST;
+    document.getElementById('waitingMemberList').innerHTML = buildMemberListHTML(demoMembers);
     document.getElementById('waitingFooterNote').textContent = isFresh
       ? 'You just created this lobby — share its code so others can join. Start Game once your friends are in.'
       : "As Organizer, you decide when the game begins — everyone else is waiting on you. A game runs for 8 rounds.";
+    renderLineupAndWaiting(currentGameMembers);
     showGameScreen();
     showLobbyState('Waiting');
   }
 
-  // Organizer kicks a member: their chip fades out and disappears. Delegated on
-  // the container since the member list is rebuilt (innerHTML) on every entry.
+  // Organizer kicks a member: their chip fades out and disappears, and they're
+  // dropped from the actual game cast too (not just the visual member list) —
+  // otherwise a kicked player would still turn up in the round lineup. Delegated
+  // on the container since the member list is rebuilt (innerHTML) on every entry.
   document.getElementById('waitingMemberList').addEventListener('click', (e) => {
     const kickBtn = e.target.closest('.kick-btn');
     if (!kickBtn) return;
+    const kickedName = kickBtn.dataset.kickName;
     const chip = kickBtn.closest('.member-chip');
     chip.classList.add('kicked');
     setTimeout(() => chip.remove(), 220);
+    currentGameMembers = currentGameMembers.filter(name => name !== kickedName);
+    renderLineupAndWaiting(currentGameMembers.length ? currentGameMembers : DEMO_POOL.slice(0, 3));
   });
 
   // --- ADMIN TOGGLE ---
@@ -1735,29 +1796,35 @@
     document.getElementById('lobby' + name).classList.add('active');
   }
 
-  const ROUNDS = [
-    { correct: 'Finn',  bumps: { Mia: 3, Lukas: 1, Finn: 0 } },
-    { correct: 'Mia',   bumps: { Mia: 0, Lukas: 2, Finn: 3 } },
-    { correct: 'Lukas', bumps: { Mia: 2, Lukas: 0, Finn: 1 } },
-    { correct: 'Mia',   bumps: { Mia: 0, Lukas: 3, Finn: 2 } },
-    { correct: 'Finn',  bumps: { Mia: 1, Lukas: 2, Finn: 0 } },
-    { correct: 'Lukas', bumps: { Mia: 3, Lukas: 0, Finn: 1 } },
-    { correct: 'Mia',   bumps: { Mia: 0, Lukas: 1, Finn: 2 } },
-    { correct: 'Finn',  bumps: { Mia: 2, Lukas: 1, Finn: 0 } },
-  ];
-  const TOTAL_ROUNDS = ROUNDS.length;
+  // Built fresh each time a game starts, from whichever 3 people are actually in
+  // this lobby (see membersForCode) — not a fixed Mia/Lukas/Finn cast every time.
+  const TOTAL_ROUNDS = 8;
+  let ROUNDS = [];
+  let currentGameMembers = [];
   let currentRoundIndex = 0;
   let standings = {};
   let picked = null;
+  let rows = document.querySelectorAll('#lineup .suspect-row');
 
-  const rows = document.querySelectorAll('#lineup .suspect-row');
   const videoStage = document.getElementById('videoStage');
   const guessSheet = document.getElementById('guessSheet');
   const guessToggleBtn = document.getElementById('guessToggleBtn');
   const waitingOverlay = document.getElementById('waitingOverlay');
 
+  function buildRounds(members) {
+    const rounds = [];
+    for (let i = 0; i < TOTAL_ROUNDS; i++) {
+      const correct = members[i % members.length];
+      const bumps = {};
+      members.forEach(m => { bumps[m] = m === correct ? 0 : Math.floor(Math.random() * 4); });
+      rounds.push({ correct, bumps });
+    }
+    return rounds;
+  }
+
   function resetStandings() {
-    standings = { You: 0, Mia: 0, Lukas: 0, Finn: 0 };
+    standings = { You: 0 };
+    currentGameMembers.forEach(name => { standings[name] = 0; });
   }
 
   function openSheet() {
@@ -1790,18 +1857,10 @@
   document.getElementById('startGameBtn').addEventListener('click', () => {
     gameStartedCodes.add(currentLobbyCode);
     currentRoundIndex = 0;
+    ROUNDS = buildRounds(currentGameMembers);
     resetStandings();
     showLobbyState('Game');
     loadRound();
-  });
-
-  // Tapping a name locks the guess in immediately — no separate confirm step.
-  rows.forEach(row => {
-    row.addEventListener('click', () => {
-      if (picked) return;
-      picked = row.dataset.name;
-      lockInGuess();
-    });
   });
 
   function lockInGuess() {
@@ -1836,8 +1895,8 @@
     order.forEach(([name, pts], i) => {
       const li = document.createElement('li');
       li.className = 'standings-row' + (targetId === 'finalStandings' && i === 0 ? ' trophy-highlight' : '');
-      const avatarClass = name === 'You' ? 'avatar-you' : 'avatar-' + name.toLowerCase();
-      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span><span class="avatar ${avatarClass}">${name[0]}</span><span class="standing-name">${name}</span><span class="points">${pts}</span>`;
+      const avatarHTML = name === 'You' ? youAvatarHTML() : `<span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>`;
+      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span>${avatarHTML}<span class="standing-name">${name}</span><span class="points">${pts}</span>`;
       list.appendChild(li);
     });
   }
