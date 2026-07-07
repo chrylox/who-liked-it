@@ -100,15 +100,6 @@
     margin-bottom: 10px;
   }
   .session-status.signed-in { color: var(--success); }
-  .session-status .dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-faint);
-    margin-right: 6px;
-  }
-  .session-status.signed-in .dot { background: var(--success); }
 
   /* --- ADMIN SIMULATE TOGGLE --- */
   .admin-toggle {
@@ -997,7 +988,7 @@
   <h1>Who Liked It?</h1>
   <p class="sub">Submit videos anytime, join a lobby with friends, and guess who liked what.</p>
   <div id="accountControls">
-    <div class="session-status" id="sessionStatus"><span class="dot"></span>Not signed in</div>
+    <div class="session-status" id="sessionStatus">Not signed in</div>
     <label class="admin-toggle">
       <input type="checkbox" id="adminToggle">
       <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -1391,7 +1382,7 @@
   function applySession(account) {
     signedIn = !!account;
     if (signedIn) {
-      sessionStatus.innerHTML = `<span class="dot"></span>Signed in as ${account.name}`;
+      sessionStatus.innerHTML = `Signed in as ${account.name}`;
       sessionStatus.classList.add('signed-in');
       // Carry the login data straight into the account info shown on the Profile
       // screen and the "filed under" byline, so it's not left showing placeholders.
@@ -1403,7 +1394,7 @@
       profilePicInitial.textContent = initial;
       applyPhoto(localStorage.getItem(PHOTO_KEY));
     } else {
-      sessionStatus.innerHTML = `<span class="dot"></span>Not signed in`;
+      sessionStatus.innerHTML = `Not signed in`;
       sessionStatus.classList.remove('signed-in');
       profileDropdown.style.display = 'none';
     }
@@ -1510,11 +1501,15 @@
     return picked;
   }
 
-  // Your own avatar wherever it's rendered dynamically (member chips, standings) —
-  // shows your uploaded photo if you've set one, otherwise your initial.
+  // Your own name and avatar wherever they're rendered dynamically (member
+  // chips, standings) — shows your actual signed-in name/photo, not a
+  // hardcoded "You" placeholder.
+  function myName() {
+    return (profileNameInput.value || '').trim() || 'You';
+  }
   function youAvatarHTML() {
     const photo = localStorage.getItem(PHOTO_KEY);
-    const initial = (profileNameInput.value || 'You').charAt(0).toUpperCase();
+    const initial = myName().charAt(0).toUpperCase();
     return photo
       ? `<span class="avatar avatar-you"><img class="avatar-photo" src="${photo}" alt=""></span>`
       : `<span class="avatar avatar-you">${initial}</span>`;
@@ -1523,7 +1518,7 @@
   // Every member sees the same code (it's in the header badge, not hidden per-role),
   // and the Organizer gets a Kick (×) button on everyone else's chip.
   function buildMemberListHTML(members) {
-    const youChip = `<div class="member-chip">${youAvatarHTML()}You&nbsp;<span class="role-badge role-organizer">Organizer</span></div>`;
+    const youChip = `<div class="member-chip">${youAvatarHTML()}${myName()}&nbsp;<span class="role-badge role-organizer">Organizer</span></div>`;
     const otherChips = members.map(name =>
       `<div class="member-chip"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}<button class="kick-btn" data-kick-name="${name}" title="Kick ${name}">&times;</button></div>`
     ).join('\n    ');
@@ -1895,8 +1890,10 @@
     order.forEach(([name, pts], i) => {
       const li = document.createElement('li');
       li.className = 'standings-row' + (targetId === 'finalStandings' && i === 0 ? ' trophy-highlight' : '');
-      const avatarHTML = name === 'You' ? youAvatarHTML() : `<span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>`;
-      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span>${avatarHTML}<span class="standing-name">${name}</span><span class="points">${pts}</span>`;
+      const isYou = name === 'You';
+      const avatarHTML = isYou ? youAvatarHTML() : `<span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>`;
+      const displayName = isYou ? myName() : name;
+      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span>${avatarHTML}<span class="standing-name">${displayName}</span><span class="points">${pts}</span>`;
       list.appendChild(li);
     });
   }
