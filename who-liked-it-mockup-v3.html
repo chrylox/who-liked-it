@@ -73,15 +73,6 @@
 
   .masthead { text-align: center; margin-bottom: 20px; max-width: 560px; }
 
-  .masthead .kicker {
-    font-family: var(--font-sans);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--accent);
-  }
-
   .masthead h1 {
     font-family: var(--font-sans);
     font-weight: 800;
@@ -109,7 +100,15 @@
     margin-bottom: 10px;
   }
   .session-status.signed-in { color: var(--success); }
-  .session-status .dot { margin-right: 5px; }
+  .session-status .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    margin-right: 6px;
+  }
+  .session-status.signed-in .dot { background: var(--success); }
 
   /* --- ADMIN SIMULATE TOGGLE --- */
   .admin-toggle {
@@ -586,7 +585,6 @@
     overflow: hidden;
     box-shadow: var(--shadow-md);
     background: #000;
-    touch-action: none;
   }
 
   .video-fullscreen {
@@ -665,33 +663,30 @@
   .waiting-overlay .waiting-row { color: #fff; }
   .waiting-overlay .wait-status { color: #4ade80; }
 
-  .swipe-hint {
+  /* Corner button: opens the guess sheet, then rides up to sit at the sheet's
+     top-right corner so the same button closes it again. */
+  .guess-toggle-btn {
     position: absolute;
-    left: 50%;
-    bottom: 18px;
-    transform: translateX(-50%);
-    z-index: 3;
+    right: 12px;
+    bottom: 12px;
+    z-index: 6;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(10,10,16,0.55);
-    color: #fff;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--accent-contrast);
     border: none;
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    font-weight: 700;
-    padding: 8px 16px;
-    border-radius: 999px;
+    border-radius: 50%;
     cursor: pointer;
-    animation: swipeBounce 1.8s ease-in-out infinite;
+    box-shadow: var(--shadow-md);
+    transition: bottom 0.28s cubic-bezier(.2,.8,.2,1), transform 0.28s ease;
   }
-  .swipe-chevron { font-size: 10px; }
-  @keyframes swipeBounce {
-    0%, 100% { transform: translateX(-50%) translateY(0); }
-    50% { transform: translateX(-50%) translateY(-6px); }
-  }
+  .toggle-chevron { font-size: 13px; display: inline-block; transition: transform 0.28s ease; }
 
-  .video-stage.sheet-open .swipe-hint { opacity: 0; pointer-events: none; }
+  .video-stage.sheet-open .guess-toggle-btn { bottom: calc(50% - 22px); }
+  .video-stage.sheet-open .toggle-chevron { transform: rotate(180deg); }
 
   .video-stage::before {
     content: "";
@@ -708,27 +703,18 @@
   .guess-sheet {
     position: absolute;
     left: 0; right: 0; bottom: 0;
+    height: 50%;
     z-index: 5;
-    max-height: 78%;
     overflow-y: auto;
     background: var(--surface);
     border-radius: 20px 20px 0 0;
-    padding: 10px 16px 18px;
+    padding: 16px 16px 18px;
     box-shadow: var(--shadow-md);
     transform: translateY(100%);
     transition: transform 0.28s cubic-bezier(.2,.8,.2,1);
   }
   .guess-sheet.open { transform: translateY(0); }
-  .guess-sheet.dragging { transition: none; }
-  .guess-sheet:not(.open):not(.dragging) { pointer-events: none; }
-
-  .sheet-handle {
-    width: 36px;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--border);
-    margin: 0 auto 14px;
-  }
+  .guess-sheet:not(.open) { pointer-events: none; }
 
   .lineup-note {
     font-family: var(--font-sans);
@@ -846,18 +832,6 @@
   }
 
   /* --- ADMIN --- */
-  .admin-panel-section {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-  }
-  .admin-panel-heading {
-    font-family: var(--font-sans);
-    font-weight: 800;
-    font-size: 18px;
-    color: var(--text);
-    margin: 0 0 14px;
-  }
   .admin-section { margin-bottom: 24px; }
   .admin-row {
     display: flex;
@@ -946,6 +920,52 @@
     max-width: 46ch;
   }
 
+  /* --- PROFILE: corner button + dropdown (separated out of Home) --- */
+  .profile-corner-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 20;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    box-shadow: var(--shadow-md);
+  }
+  .profile-avatar-sm { width: 40px; height: 40px; font-size: 15px; }
+  .profile-avatar-lg { width: 56px; height: 56px; font-size: 20px; flex-shrink: 0; }
+  .avatar.profile-avatar-sm, .avatar.profile-avatar-lg { position: relative; overflow: hidden; }
+  .avatar-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .profile-dropdown {
+    position: fixed;
+    top: 64px;
+    right: 16px;
+    z-index: 20;
+    width: min(300px, calc(100vw - 32px));
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+  }
+  .profile-pic-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
   /* --- RESPONSIVE (phone-width viewports) --- */
   @media (max-width: 600px) {
     body { padding: 20px 14px 48px; }
@@ -964,11 +984,10 @@
 </style>
 
 <div class="masthead">
-  <div class="kicker">Party Game</div>
   <h1>Who Liked It?</h1>
   <p class="sub">Submit videos anytime, join a lobby with friends, and guess who liked what.</p>
   <div id="accountControls">
-    <div class="session-status" id="sessionStatus"><span class="dot">🔴</span>Not signed in</div>
+    <div class="session-status" id="sessionStatus"><span class="dot"></span>Not signed in</div>
     <label class="admin-toggle">
       <input type="checkbox" id="adminToggle">
       <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -977,11 +996,21 @@
   </div>
 </div>
 
+<!-- Profile is only reachable from here now (top-right corner), not a Home tab —
+     hidden while signed out, and hidden again while inside a lobby takeover. -->
+<button class="profile-corner-btn" id="profileCornerBtn" type="button" aria-label="Profile settings" style="display:none;">
+  <span class="avatar avatar-you profile-avatar-sm" id="profileCornerAvatar">
+    <img class="avatar-photo" id="profileCornerPhoto" alt="" style="display:none;">
+    <span class="avatar-initial" id="profileCornerInitial">Y</span>
+  </span>
+</button>
+
 <div class="stage">
   <div class="tabs" role="tablist" id="tabsRow">
     <button class="tab" aria-selected="true" data-target="access" id="accessTab">Access</button>
     <button class="tab tab-locked" aria-selected="false" data-target="submit">Submit Video</button>
-    <button class="tab tab-locked" aria-selected="false" data-target="home">Home</button>
+    <button class="tab tab-locked" aria-selected="false" data-target="home">Lobbies</button>
+    <button class="tab tab-hidden" aria-selected="false" data-target="admin" id="adminTab">Admin</button>
   </div>
 
   <div class="board">
@@ -1033,20 +1062,12 @@
       <p class="footer-note-inline">💡 Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
     </section>
 
-    <!-- HOME PANEL -->
+    <!-- LOBBIES PANEL -->
     <section class="panel" id="home">
-      <h2 class="panel-title">Home</h2>
-      <p class="panel-flavor">Your lobbies and your profile live here.</p>
+      <h2 class="panel-title">Lobbies</h2>
+      <p class="panel-flavor">Every video pool feeds into a lobby. Join one with a code, or start your own &mdash; you'll be its Organizer.</p>
 
-      <div class="switcher">
-        <button class="active" data-homemode="lobbies">My Lobbies</button>
-        <button data-homemode="profile">Profile</button>
-      </div>
-
-      <!-- MY LOBBIES -->
       <div data-home="lobbies">
-        <p class="panel-flavor">Every video pool feeds into a lobby. Join one with a code, or start your own &mdash; you'll be its Organizer.</p>
-
         <div class="switcher">
           <button class="active" data-lobbymode="join">Join Lobby</button>
           <button data-lobbymode="create">Create Lobby</button>
@@ -1073,24 +1094,41 @@
           <div class="pool-title" id="lobbyListTitle">Your Lobbies (0)</div>
         </div>
         <p class="footer-note-inline">🚪 Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes &mdash; videos stay, points don't. Once you leave, the lobby's gone from this list &mdash; you'll need its code again to rejoin.</p>
-        <p class="footer-note-inline">🔒 Once you enter a lobby, Home and Submit Video lock until you leave or the game finishes.</p>
+        <p class="footer-note-inline">🔒 Once you enter a lobby, Lobbies and Submit Video lock until you leave or the game finishes.</p>
       </div>
+    </section>
 
-      <!-- PROFILE -->
-      <div data-home="profile" style="display:none;">
-        <div class="field">
-          <label for="profileName">Display Name</label>
-          <input type="text" id="profileName" value="You">
+    <!-- PROFILE: separated out of Home, opened from the corner button (top-right,
+         hidden while signed out or inside a lobby) instead of living in a tab. -->
+    <div class="profile-dropdown" id="profileDropdown" style="display:none;">
+      <div class="profile-pic-row">
+        <span class="avatar avatar-you profile-avatar-lg" id="profilePicPreview">
+          <img class="avatar-photo" id="profilePicPhoto" alt="" style="display:none;">
+          <span class="avatar-initial" id="profilePicInitial">Y</span>
+        </span>
+        <div>
+          <button class="btn secondary small" id="changePhotoBtn" type="button">Change Photo</button>
+          <input type="file" id="photoInput" accept="image/*" style="display:none;">
         </div>
-        <div class="field">
-          <label for="profileEmail">Email</label>
-          <input type="email" id="profileEmail" value="you@example.com">
-        </div>
-        <button class="btn secondary">Save Changes</button>
-        <button class="btn secondary" id="logoutBtn">Log Out</button>
+      </div>
+      <div class="field">
+        <label for="profileName">Display Name</label>
+        <input type="text" id="profileName" value="You">
+      </div>
+      <div class="field">
+        <label for="profileEmail">Email</label>
+        <input type="email" id="profileEmail" value="you@example.com">
+      </div>
+      <button class="btn secondary">Save Changes</button>
+      <button class="btn secondary" id="logoutBtn">Log Out</button>
+    </div>
 
-        <div class="admin-panel-section" id="adminPanelSection" style="display:none;">
-          <h3 class="admin-panel-heading">🛡️ Admin Panel</h3>
+    <!-- ADMIN PANEL: its own tab (shown only when "Simulate Admin Login" is on,
+         and only while signed in) instead of being squeezed into the small
+         profile dropdown alongside everyone else's account settings. -->
+    <section class="panel" id="admin">
+      <h2 class="panel-title">Admin</h2>
+      <p class="panel-flavor">Moderate lobbies, the player roster, and submitted videos.</p>
 
           <div class="admin-section">
             <div class="pool-title">All Open Lobbies (0)</div>
@@ -1174,8 +1212,6 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
     </section>
 
     <!-- LOBBY PANEL: a separate full-takeover "screen", not a normal tab. No way back
@@ -1229,12 +1265,11 @@
             <div class="waiting-row" data-name="Finn"><span class="avatar avatar-finn">F</span>Finn<span class="wait-status">&hellip;</span></div>
           </div>
 
-          <button class="swipe-hint" id="swipeHint" type="button">
-            <span class="swipe-chevron">&#9650;</span> Swipe up to guess
+          <button class="guess-toggle-btn" id="guessToggleBtn" type="button" aria-label="Show players to guess">
+            <span class="toggle-chevron">&#9650;</span>
           </button>
 
           <div class="guess-sheet" id="guessSheet">
-            <div class="sheet-handle" id="sheetHandle"></div>
             <div class="lineup-note">Who liked it?</div>
             <div class="lineup" id="lineup">
               <button class="suspect-row" data-name="Lukas"><span class="avatar avatar-lukas">L</span>Lukas<span class="result-icon"></span></button>
@@ -1257,7 +1292,7 @@
         <ul class="standings-list" id="finalStandings"></ul>
         <div class="draw-actions" style="margin-top:16px;">
           <button class="btn" id="playAgainBtn">Start New Game</button>
-          <button class="btn secondary" id="backHomeBtn">Back to Home</button>
+          <button class="btn secondary" id="backHomeBtn">Back to Lobbies</button>
         </div>
         <p class="footer-note-inline">Starting a new game resets standings to zero &mdash; they never carry over between games.</p>
       </div>
@@ -1265,7 +1300,7 @@
   </div>
 </div>
 
-<p class="footer-note">Mockup only &mdash; no real accounts, lobbies, videos, or data. Try the whole loop: sign in (reload the page &mdash; you'll stay signed in) &rarr; Submit a Video &rarr; Home &rarr; My Lobbies &rarr; Enter &rarr; Start Game &rarr; vote through all 8 rounds.</p>
+<p class="footer-note">Mockup only &mdash; no real accounts, lobbies, videos, or data. Try the whole loop: sign in (reload the page &mdash; you'll stay signed in) &rarr; Submit a Video &rarr; Lobbies &rarr; Enter &rarr; Start Game &rarr; vote through all 8 rounds.</p>
 
 <script>
   // --- TOP-LEVEL TABS ---
@@ -1298,10 +1333,29 @@
   const profileNameInput = document.getElementById('profileName');
   const profileEmailInput = document.getElementById('profileEmail');
   const filedUnderName = document.getElementById('filedUnderName');
+  const profileCornerBtn = document.getElementById('profileCornerBtn');
+  const profileDropdown = document.getElementById('profileDropdown');
+  const adminTab = document.getElementById('adminTab');
+  const adminToggle = document.getElementById('adminToggle');
+  const profileCornerInitial = document.getElementById('profileCornerInitial');
+  const profileCornerPhoto = document.getElementById('profileCornerPhoto');
+  const profilePicInitial = document.getElementById('profilePicInitial');
+  const profilePicPhoto = document.getElementById('profilePicPhoto');
+  const PHOTO_KEY = 'wli_profile_photo';
 
   function getKnownAccounts() {
     try { return JSON.parse(localStorage.getItem(KNOWN_ACCOUNTS_KEY)) || {}; }
     catch (e) { return {}; }
+  }
+
+  function applyPhoto(dataUrl) {
+    [profileCornerPhoto, profilePicPhoto].forEach(img => {
+      img.src = dataUrl || '';
+      img.style.display = dataUrl ? 'block' : 'none';
+    });
+    [profileCornerInitial, profilePicInitial].forEach(span => {
+      span.style.display = dataUrl ? 'none' : 'inline';
+    });
   }
 
   let signedIn = false;
@@ -1318,22 +1372,40 @@
     submitTab.classList.toggle('tab-locked', !signedIn);
     homeTab.classList.toggle('tab-locked', !signedIn);
     accessTab.classList.toggle('tab-hidden', signedIn);
+    profileCornerBtn.style.display = signedIn ? 'block' : 'none';
+    updateAdminTabVisibility();
+  }
+
+  // Admin gets its own tab — shown only while signed in AND the "Simulate Admin
+  // Login" toggle is on. Turning either off while Admin is the active tab bounces
+  // you back to Lobbies so you're never left on a tab that just disappeared.
+  function updateAdminTabVisibility() {
+    const show = signedIn && adminToggle.checked;
+    adminTab.classList.toggle('tab-hidden', !show);
+    if (!show && adminTab.getAttribute('aria-selected') === 'true') {
+      goToTab('home');
+    }
   }
 
   // account is either null (signed out) or { name, email }
   function applySession(account) {
     signedIn = !!account;
     if (signedIn) {
-      sessionStatus.innerHTML = `<span class="dot">🟢</span>Signed in as ${account.name}`;
+      sessionStatus.innerHTML = `<span class="dot"></span>Signed in as ${account.name}`;
       sessionStatus.classList.add('signed-in');
       // Carry the login data straight into the account info shown on the Profile
       // screen and the "filed under" byline, so it's not left showing placeholders.
       profileNameInput.value = account.name;
       profileEmailInput.value = account.email;
       filedUnderName.textContent = account.name;
+      const initial = account.name.charAt(0).toUpperCase() || 'Y';
+      profileCornerInitial.textContent = initial;
+      profilePicInitial.textContent = initial;
+      applyPhoto(localStorage.getItem(PHOTO_KEY));
     } else {
-      sessionStatus.innerHTML = `<span class="dot">🔴</span>Not signed in`;
+      sessionStatus.innerHTML = `<span class="dot"></span>Not signed in`;
       sessionStatus.classList.remove('signed-in');
+      profileDropdown.style.display = 'none';
     }
     updateTabLocks();
   }
@@ -1368,6 +1440,32 @@
     goToTab('access');
   });
 
+  // --- PROFILE: corner button opens/closes the dropdown; outside click closes it ---
+  profileCornerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileDropdown.style.display = profileDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+  document.addEventListener('click', (e) => {
+    if (profileDropdown.style.display !== 'block') return;
+    if (profileDropdown.contains(e.target) || e.target === profileCornerBtn) return;
+    profileDropdown.style.display = 'none';
+  });
+
+  // --- PROFILE: change photo (stored as a data URL in localStorage, so it
+  // persists across reloads the same way the signed-in session does) ---
+  const photoInput = document.getElementById('photoInput');
+  document.getElementById('changePhotoBtn').addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      localStorage.setItem(PHOTO_KEY, reader.result);
+      applyPhoto(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
   // --- LOBBY: FULL SCREEN TAKEOVER (not a normal tab) ---
   // Entering a lobby replaces the whole UI with the game screen: the tab bar and
   // account controls (session status, admin toggle) disappear entirely. The only
@@ -1380,6 +1478,8 @@
   function showGameScreen() {
     tabsRow.classList.add('hidden');
     accountControls.style.display = 'none';
+    profileCornerBtn.style.display = 'none';
+    profileDropdown.style.display = 'none';
     stage.classList.add('in-game');
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     lobbyPanel.classList.add('active');
@@ -1388,6 +1488,7 @@
   function hideGameScreen(targetTabId) {
     tabsRow.classList.remove('hidden');
     accountControls.style.display = '';
+    if (signedIn) profileCornerBtn.style.display = 'block';
     stage.classList.remove('in-game');
     goToTab(targetTabId);
   }
@@ -1426,11 +1527,9 @@
   });
 
   // --- ADMIN TOGGLE ---
-  const adminToggle = document.getElementById('adminToggle');
-  const adminPanelSection = document.getElementById('adminPanelSection');
   const stampCornerText = document.getElementById('stampCornerText');
   adminToggle.addEventListener('change', () => {
-    adminPanelSection.style.display = adminToggle.checked ? 'block' : 'none';
+    updateAdminTabVisibility();
     stampCornerText.style.display = adminToggle.checked ? 'inline-block' : 'none';
   });
 
@@ -1443,19 +1542,6 @@
       btn.classList.add('active');
       registerField.style.display = btn.dataset.mode === 'register' ? 'block' : 'none';
       document.getElementById('enterBtn').textContent = btn.dataset.mode === 'register' ? 'Create Account' : 'Enter';
-    });
-  });
-
-  // --- HOME: SUBMIT / LOBBIES / PROFILE SWITCHER ---
-  const homeModeButtons = document.querySelectorAll('[data-homemode]');
-  const homeSubpanels = document.querySelectorAll('[data-home]');
-  homeModeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      homeModeButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      homeSubpanels.forEach(p => {
-        p.style.display = (p.dataset.home === btn.dataset.homemode) ? 'block' : 'none';
-      });
     });
   });
 
@@ -1617,11 +1703,15 @@
     });
   });
 
-  // Removing a player removes their whole roster entry, evidence list included.
+  // Removing a player deletes their whole account (every lobby, every video) —
+  // a destructive, irreversible action, so confirm first in case of a stray click.
   document.querySelectorAll('.admin-remove-person-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const person = btn.closest('.admin-person');
+      const name = person.dataset.person.charAt(0).toUpperCase() + person.dataset.person.slice(1);
+      const confirmed = window.confirm(`Delete ${name}'s account? This removes them from every lobby and deletes everything they've submitted — this can't be undone.`);
+      if (!confirmed) return;
       person.classList.add('removed');
       setTimeout(() => person.remove(), 260);
     });
@@ -1651,7 +1741,7 @@
   const rows = document.querySelectorAll('#lineup .suspect-row');
   const videoStage = document.getElementById('videoStage');
   const guessSheet = document.getElementById('guessSheet');
-  const swipeHint = document.getElementById('swipeHint');
+  const guessToggleBtn = document.getElementById('guessToggleBtn');
   const waitingOverlay = document.getElementById('waitingOverlay');
 
   function resetStandings() {
@@ -1680,7 +1770,7 @@
     document.getElementById('miniStandingsWrap').style.display = 'none';
     waitingOverlay.style.display = 'none';
     document.querySelectorAll('#waitingOverlay .wait-status').forEach(s => s.textContent = '…');
-    swipeHint.style.display = 'flex';
+    guessToggleBtn.style.display = 'flex';
     closeSheet();
     picked = null;
   }
@@ -1704,7 +1794,7 @@
 
   function lockInGuess() {
     closeSheet();
-    swipeHint.style.display = 'none';
+    guessToggleBtn.style.display = 'none';
     waitingOverlay.style.display = 'block';
     const delays = { Mia: 600, Lukas: 1000, Finn: 1400 };
     Object.keys(delays).forEach(name => {
@@ -1716,45 +1806,16 @@
     setTimeout(revealRound, 1700);
   }
 
-  // Swipe up (or tap the hint) opens the guess sheet; swipe down / tap outside closes it.
-  // Pointer Events cover mouse and touch with one code path.
-  swipeHint.addEventListener('click', openSheet);
+  // The corner button toggles the sheet open/closed, and rides up to the sheet's
+  // top-right corner while it's open so the same button closes it again.
+  // Tapping the dimmed video outside the sheet also closes it.
+  guessToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (videoStage.classList.contains('sheet-open')) closeSheet(); else openSheet();
+  });
   videoStage.addEventListener('click', (e) => {
     if (videoStage.classList.contains('sheet-open') && !guessSheet.contains(e.target)) closeSheet();
   });
-
-  const sheetHandle = document.getElementById('sheetHandle');
-  let dragStartY = null;
-  videoStage.addEventListener('pointerdown', (e) => {
-    if (guessSheet.contains(e.target) && e.target !== sheetHandle) return;
-    dragStartY = e.clientY;
-    guessSheet.classList.add('dragging');
-  });
-  videoStage.addEventListener('pointermove', (e) => {
-    if (dragStartY === null) return;
-    const delta = dragStartY - e.clientY;
-    const sheetHeight = guessSheet.offsetHeight || 1;
-    const isOpen = guessSheet.classList.contains('open');
-    const translate = isOpen
-      ? Math.min(Math.max(-delta, 0), sheetHeight)
-      : Math.min(Math.max(sheetHeight - delta, 0), sheetHeight);
-    guessSheet.style.transform = `translateY(${translate}px)`;
-  });
-  function endDrag(e) {
-    if (dragStartY === null) return;
-    const delta = dragStartY - e.clientY;
-    guessSheet.classList.remove('dragging');
-    guessSheet.style.transform = '';
-    dragStartY = null;
-    const isOpen = guessSheet.classList.contains('open');
-    if (isOpen) {
-      if (delta < -40) closeSheet();
-    } else if (delta > 40) {
-      openSheet();
-    }
-  }
-  videoStage.addEventListener('pointerup', endDrag);
-  videoStage.addEventListener('pointercancel', endDrag);
 
   function renderStandings(targetId) {
     const list = document.getElementById(targetId);
