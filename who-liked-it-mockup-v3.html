@@ -903,6 +903,8 @@
     color: var(--text-faint);
     padding: 8px 0 4px;
   }
+  .admin-search-field { margin-bottom: 12px; }
+  .admin-search-field input { font-size: 14px; padding: 10px 12px; }
 
   .avatar-lukas { background: #2f9c6e; }
   .avatar-mia { background: #e0812c; }
@@ -1049,17 +1051,9 @@
         <label for="link">Video Link</label>
         <input type="url" id="link" placeholder="tiktok.com/@you/video/7...">
       </div>
-      <div class="self-tag-note">🎥 Submitted by: <strong id="filedUnderName">You</strong> &mdash; hidden until it's drawn in a game.</div>
+      <div class="self-tag-note">Submitted by: <strong id="filedUnderName">You</strong> &mdash; hidden until it's drawn in a game.</div>
       <button class="btn" id="fileBtn">Submit</button>
-
-      <div class="pool-list">
-        <div class="pool-title" id="poolTitle">Your Submitted Videos (4)</div>
-        <div class="pool-row"><span class="sealed">Video #01</span><span class="tag">hidden</span></div>
-        <div class="pool-row"><span class="sealed">Video #02</span><span class="tag">hidden</span></div>
-        <div class="pool-row"><span class="sealed">Video #03</span><span class="tag">hidden</span></div>
-        <div class="pool-row"><span class="sealed">Video #04</span><span class="tag">hidden</span></div>
-      </div>
-      <p class="footer-note-inline">💡 Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
+      <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
     </section>
 
     <!-- LOBBIES PANEL -->
@@ -1079,7 +1073,7 @@
             <input type="text" id="joinCode" maxlength="6" placeholder="482913">
           </div>
           <button class="btn" id="joinBtn">Join Lobby</button>
-          <p class="join-error" id="joinError" style="display:none;">🔒 That lobby's game has already started &mdash; try again once it finishes.</p>
+          <p class="join-error" id="joinError" style="display:none;">That lobby's game has already started &mdash; try again once it finishes.</p>
         </div>
 
         <div data-lobby-create style="display:none;">
@@ -1093,8 +1087,8 @@
         <div class="pool-list">
           <div class="pool-title" id="lobbyListTitle">Your Lobbies (0)</div>
         </div>
-        <p class="footer-note-inline">🚪 Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes &mdash; videos stay, points don't. Once you leave, the lobby's gone from this list &mdash; you'll need its code again to rejoin.</p>
-        <p class="footer-note-inline">🔒 Once you enter a lobby, Lobbies and Submit Video lock until you leave or the game finishes.</p>
+        <p class="footer-note-inline">Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes &mdash; videos stay, points don't. Once you leave, the lobby's gone from this list &mdash; you'll need its code again to rejoin.</p>
+        <p class="footer-note-inline">Once you enter a lobby, Lobbies and Submit Video lock until you leave or the game finishes.</p>
       </div>
     </section>
 
@@ -1136,7 +1130,11 @@
           </div>
 
           <div class="admin-section">
-            <div class="pool-title">Player Roster (5) &mdash; click a player to manage their videos</div>
+            <div class="pool-title">Player Roster &mdash; click a player to manage their videos</div>
+            <div class="field admin-search-field">
+              <input type="text" id="playerSearch" placeholder="Search players by name&hellip;" aria-label="Search players by name">
+            </div>
+            <p class="admin-evidence-empty" id="playerSearchEmpty" style="display:none;">No players match &ldquo;<span id="playerSearchEmptyTerm"></span>&rdquo;.</p>
 
             <div class="admin-person" data-person="mia">
               <div class="admin-row admin-row-clickable">
@@ -1223,7 +1221,7 @@
           <p class="panel-flavor">Personal evidence pools of everyone here feed the game.</p>
           <span class="lobby-code-badge" id="lobbyCodeBadge">CODE: &mdash;</span>
         </div>
-        <div class="exit-note">🔒 In-game &mdash; leave or finish to return</div>
+        <div class="exit-note">In-game &mdash; leave or finish to return</div>
       </div>
 
       <!-- WAITING ROOM -->
@@ -1288,7 +1286,7 @@
 
       <!-- FINAL RESULTS -->
       <div class="lobby-state" id="lobbyFinal">
-        <h3 class="subpanel-title">🏁 Final Standings</h3>
+        <h3 class="subpanel-title">Final Standings</h3>
         <ul class="standings-list" id="finalStandings"></ul>
         <div class="draw-actions" style="margin-top:16px;">
           <button class="btn" id="playAgainBtn">Start New Game</button>
@@ -1662,17 +1660,14 @@
   document.getElementById('leaveWaitingBtn').addEventListener('click', leaveCurrentLobby);
   document.getElementById('leaveGameBtn').addEventListener('click', leaveCurrentLobby);
 
-  // --- SUBMIT VIDEO ---
-  let evidenceCount = 4;
+  // --- SUBMIT VIDEO: just the submit action, no visible list of what you've
+  // sent in before (players never see their own pool, only that it exists) ---
   document.getElementById('fileBtn').addEventListener('click', () => {
-    evidenceCount++;
-    const list = document.querySelector('#submit .pool-list');
-    const row = document.createElement('div');
-    row.className = 'pool-row';
-    row.innerHTML = `<span class="sealed">Video #${String(evidenceCount).padStart(2,'0')}</span><span class="tag">hidden</span>`;
-    list.appendChild(row);
-    document.getElementById('poolTitle').textContent = `Your Submitted Videos (${evidenceCount})`;
+    const btn = document.getElementById('fileBtn');
+    const original = btn.textContent;
+    btn.textContent = 'Submitted!';
     document.getElementById('link').value = '';
+    setTimeout(() => { btn.textContent = original; }, 1400);
   });
 
   // --- HOME > PROFILE: ADMIN MODERATION ---
@@ -1715,6 +1710,23 @@
       person.classList.add('removed');
       setTimeout(() => person.remove(), 260);
     });
+  });
+
+  // Roster search: filters the player list by name instead of showing a count
+  // that would just go stale the moment someone's removed.
+  const playerSearchInput = document.getElementById('playerSearch');
+  const playerSearchEmpty = document.getElementById('playerSearchEmpty');
+  const playerSearchEmptyTerm = document.getElementById('playerSearchEmptyTerm');
+  playerSearchInput.addEventListener('input', () => {
+    const term = playerSearchInput.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll('.admin-person').forEach(person => {
+      const matches = person.dataset.person.includes(term);
+      person.style.display = matches ? '' : 'none';
+      if (matches) anyVisible = true;
+    });
+    playerSearchEmptyTerm.textContent = playerSearchInput.value.trim();
+    playerSearchEmpty.style.display = (!anyVisible && term) ? 'block' : 'none';
   });
 
   // --- LOBBY: WAITING ROOM / LIVE ROUND / FINAL RESULTS STATE MACHINE ---
@@ -1825,7 +1837,7 @@
       const li = document.createElement('li');
       li.className = 'standings-row' + (targetId === 'finalStandings' && i === 0 ? ' trophy-highlight' : '');
       const avatarClass = name === 'You' ? 'avatar-you' : 'avatar-' + name.toLowerCase();
-      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span><span class="avatar ${avatarClass}">${name[0]}</span><span class="standing-name">${targetId === 'finalStandings' && i === 0 ? '🏆 ' : ''}${name}</span><span class="points">${pts}</span>`;
+      li.innerHTML = `<span class="rank">${String(i + 1).padStart(2, '0')}</span><span class="avatar ${avatarClass}">${name[0]}</span><span class="standing-name">${name}</span><span class="points">${pts}</span>`;
       list.appendChild(li);
     });
   }
