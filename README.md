@@ -1,53 +1,38 @@
 # Who Liked It?
 
-A party game for friend groups, inspired by the classic "3 friends arguing over who liked a video in the shared Liked tab" moment on TikTok — turned into a small multiplayer web app.
-
-## The idea
-
-Everyone secretly submits links to TikTok videos they've personally liked. During a game, the app randomly draws one submitted video per round — without saying whose it is — and the group votes on who they think liked it. Once everyone's guessed, the answer is revealed and points go to whoever guessed correctly. Repeat for 8 rounds, then see the final standings.
-
-The videos don't need to be embarrassing or scandalous — any liked video works. The fun is the social guessing and reveal, not the content itself.
-
-## How a game works
-
-1. **Submit videos anytime** — paste a link to something you liked into your own personal pool. It's yours and hidden until it's drawn into a game.
-2. **Join or create a lobby** with a 6-digit code, together with your friends.
-3. **Start a game** — a fixed 8-round session draws from everyone's combined video pools.
-4. **Guess each round** — swipe up on the fullscreen video to see the lineup, tap a name to lock in your guess.
-5. **Reveal** — once everyone's guessed, the answer and updated standings show at once.
-6. **Final results** after round 8 — standings reset every time a new game starts, so the same lobby can replay endlessly.
+A party game for friend groups, inspired by the classic "3 friends arguing over who liked a video in the shared Liked tab" moment on TikTok. Everyone secretly submits links to videos they've personally liked into their own pool. Each round, the app randomly draws one submitted video without saying whose it is, and the group votes on who they think liked it. Once everyone's guessed, the answer is revealed at once and points go to whoever guessed right — 8 rounds per game, then final standings, and the same group of friends can replay endlessly. Players join or create lobbies with a 6-digit code, and an Organizer (whoever created the lobby, with the role transferring if they leave) starts games and manages who's in the waiting room. Since TikTok has no public API for reading someone's Liked Videos or inbox, there's no scraping or burner-account trickery — submission is simply self-service, straight into the app's own database. It's built with plain HTML/CSS/JS on the frontend and Supabase for auth and the database, with no custom backend server needed. Right now this is a personal learning project in the design/prototyping stage: the concept, roles, and schema are fully designed, and a clickable HTML mockup ([`who-liked-it-mockup-v3.html`](./who-liked-it-mockup-v3.html)) exists to preview every screen, but the real Supabase-backed app hasn't been built yet. Full decision history lives in [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md).
 
 ## Roles
 
-- **Guest** — has an account but isn't in a lobby yet.
-- **Player** — submits videos, joins/creates lobbies, votes, and views standings.
-- **Organizer** — per-lobby, starts as whoever created it (transfers automatically if they leave); can start games, invite players via the join code, and kick players (waiting room only, not mid-game).
-- **Admin** — a single global account (just the developer's own) that can moderate lobbies, the player roster, and submitted videos.
+```mermaid
+graph LR
+  Root((🎬 Who Liked It?))
 
-See [`roles-use-cases-diagram.md`](./roles-use-cases-diagram.md) for the full breakdown.
+  Root --> Guest(🧍 Guest)
+  Guest --> G1[📝 Register Account]
+  Guest --> G2[🔓 Log In]
 
-## Why no automation against TikTok itself
+  Root --> Player(🧑‍🤝‍🧑 Player)
+  Player --> P1[🔑 Join Lobby via 6-Digit Code, blocked while its game is live]
+  Player --> P2[➕ Create Lobby]
+  Player --> P3[📼 Submit Video: Personal Pool]
+  Player --> P4[🗳️ Vote Each Round]
+  Player --> P5[🎭 See Reveal: After Everyone Votes]
+  Player --> P6[🏆 View Live & Final Standings]
+  Player --> P7[⚙️ Edit Profile]
+  Player --> P8[🚪 Leave Lobby]
 
-There's no public API for reading a TikTok account's Liked Videos or inbox, and scraping a logged-in session would violate TikTok's Terms of Service and risk a ban. So instead of any burner-account or scraping trick, each player just submits their own liked videos directly into the app — fully within our own database, zero risk to anyone's TikTok account.
+  Root --> Organizer(🕵️ Organizer, per lobby, can transfer)
+  Organizer --> O1[🎬 Start Game: 8 Rounds, Resets Standings]
+  Organizer --> O2[📣 Invite Players via Code]
+  Organizer --> O3[👢 Kick Player, waiting room only]
+  Organizer -.->|also has all| Player
+  P2 -.->|creator becomes| Organizer
+  P8 -.->|organizer leaving hands off to earliest joiner| Organizer
+  O3 -.->|not a ban, can rejoin via code| P1
 
-## Tech stack
-
-- **Frontend:** plain HTML, CSS, and JavaScript — no framework, no build step.
-- **Backend, auth, and database:** [Supabase](https://supabase.com) — free, open-source, and gives login/auth plus a Postgres database callable directly from frontend JS, so no custom server is needed.
-- **Hosting:** free static hosting (Netlify, Vercel, or GitHub Pages).
-
-## Status
-
-This is a personal learning project, currently in the design/prototyping stage:
-
-- ✅ Concept, roles, game mechanics, and database schema are designed (see [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md) for full detail).
-- ✅ A fully interactive HTML mockup exists at [`who-liked-it-mockup-v3.html`](./who-liked-it-mockup-v3.html) — open it directly in any browser to try every screen (sign in, submit videos, lobbies, live rounds, standings, admin panel). It's a clickable preview, not a real backend yet.
-- ⏳ Not yet built: the real Supabase-backed app (auth, database, live multiplayer game engine, deployment).
-
-## Files
-
-| File | What it is |
-|---|---|
-| `who-liked-it-mockup-v3.html` | Interactive click-through mockup of the whole app |
-| `PROJECT_HANDOFF.md` | Full design log — every decision made and why, plus what's left to build |
-| `roles-use-cases-diagram.md` / `.mmd` | Diagram of roles and what each one can do |
+  Root --> Admin(🛡️ Admin, global)
+  Admin --> A1[📋 View & Close Any Lobby]
+  Admin --> A2[👥 Manage Player Roster]
+  Admin --> A3[🗑️ Delete Any Video]
+```
