@@ -629,6 +629,21 @@
     inset: 0;
     background: linear-gradient(160deg, var(--accent) 0%, #37318f 100%);
   }
+
+  /* Real embedded video (replaces the decorative .video-fullscreen mockup) */
+  .video-embed-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  .video-embed-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
   .video-fullscreen::after {
     content: "";
     position: absolute;

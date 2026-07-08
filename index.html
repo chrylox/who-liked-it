@@ -76,10 +76,106 @@
       <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
     </section>
 
-    <!-- LOBBIES PANEL — real feature coming in a follow-up (issue #6) -->
+    <!-- LOBBIES PANEL -->
     <section class="panel" id="home">
       <h2 class="panel-title">Lobbies</h2>
-      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+      <p class="panel-flavor">Every video pool feeds into a lobby. Join one with a code, or start your own — you'll be its Organizer.</p>
+
+      <div class="switcher">
+        <button class="active" data-lobbymode="join" type="button">Join Lobby</button>
+        <button data-lobbymode="create" type="button">Create Lobby</button>
+      </div>
+
+      <div data-lobby-join>
+        <form id="joinLobbyForm">
+          <div class="field">
+            <label for="joinCode">6-Digit Lobby Code</label>
+            <input type="text" id="joinCode" maxlength="6" inputmode="numeric" placeholder="482913" required />
+          </div>
+          <p class="join-error" id="joinError" style="display:none;"></p>
+          <button class="btn" id="joinBtn" type="submit">Join Lobby</button>
+        </form>
+      </div>
+
+      <div data-lobby-create style="display:none;">
+        <form id="createLobbyForm">
+          <div class="field">
+            <label for="lobbyName">Lobby Name (optional)</label>
+            <input type="text" id="lobbyName" placeholder="Friday Game Night" />
+          </div>
+          <p class="join-error" id="createError" style="display:none;"></p>
+          <button class="btn" id="createBtn" type="submit">Create Lobby</button>
+        </form>
+      </div>
+
+      <p class="footer-note-inline">Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes — videos stay, points don't. Either way, you'll need the code again to rejoin.</p>
+      <p class="footer-note-inline">Once you enter a lobby, Lobbies and Submit Video lock until you leave or the game finishes.</p>
+    </section>
+
+    <!-- LOBBY: full-screen takeover, not a normal tab -->
+    <section class="panel" id="lobby">
+      <div class="game-header">
+        <div>
+          <h2 class="panel-title" id="lobbyHeaderName">Lobby</h2>
+          <p class="panel-flavor">Personal video pools of everyone here feed the game.</p>
+          <span class="lobby-code-badge" id="lobbyCodeBadge">CODE: —</span>
+        </div>
+        <div class="exit-note">In-game — leave or finish to return</div>
+      </div>
+
+      <p class="join-error" id="lobbyError" style="display:none;"></p>
+
+      <!-- WAITING ROOM -->
+      <div class="lobby-state active" id="lobbyWaiting">
+        <div class="member-list" id="waitingMemberList"></div>
+        <div class="draw-actions">
+          <button class="btn" id="startGameBtn" style="display:none;" type="button">Start Game</button>
+          <button class="btn secondary" id="leaveWaitingBtn" type="button">Leave Lobby</button>
+        </div>
+        <p class="footer-note-inline" id="waitingFooterNote"></p>
+      </div>
+
+      <!-- LIVE ROUND -->
+      <div class="lobby-state" id="lobbyGame">
+        <div class="video-stage" id="videoStage">
+          <button class="video-leave-btn" id="videoLeaveBtn" type="button" aria-label="Leave lobby (forfeits this game)">&times;</button>
+          <div class="round-tracker round-tracker-overlay" id="roundTracker">Round 1 / 8</div>
+
+          <div class="video-embed-wrap" id="videoEmbedWrap">
+            <iframe id="videoEmbedIframe" title="Submitted video" style="display:none;" allow="encrypted-media;" allowfullscreen></iframe>
+            <a id="videoFallbackLink" href="#" target="_blank" rel="noopener" class="btn secondary" style="display:none;">Watch on TikTok ↗</a>
+          </div>
+
+          <div class="waiting-list waiting-overlay" id="waitingOverlay" style="display:none;">
+            <div class="waiting-list-title">Waiting on the group&hellip;</div>
+            <div id="waitingRows"></div>
+          </div>
+
+          <div class="stamp correct" id="stampCorrect">Correct!</div>
+          <div class="stamp wrong" id="stampWrong">Wrong!</div>
+
+          <div class="guess-sheet" id="guessSheet">
+            <div class="lineup-note" id="lineupNote">Who liked it?</div>
+            <div class="lineup" id="lineup"></div>
+          </div>
+        </div>
+
+        <div class="pool-list" id="miniStandingsWrap" style="display:none;">
+          <div class="pool-title">Standings After This Round</div>
+          <ul class="standings-list" id="miniStandings"></ul>
+        </div>
+      </div>
+
+      <!-- FINAL RESULTS -->
+      <div class="lobby-state" id="lobbyFinal">
+        <h3 class="subpanel-title">Final Standings</h3>
+        <ul class="standings-list" id="finalStandings"></ul>
+        <div class="draw-actions" style="margin-top:16px;">
+          <button class="btn" id="playAgainBtn" style="display:none;" type="button">Start New Game</button>
+          <button class="btn secondary" id="backHomeBtn" type="button">Back to Lobbies</button>
+        </div>
+        <p class="footer-note-inline">Starting a new game resets standings to zero — they never carry over between games.</p>
+      </div>
     </section>
 
     <!-- ADMIN PANEL — shown to real admins already; full functionality coming in a follow-up (issue #7 / #23) -->
