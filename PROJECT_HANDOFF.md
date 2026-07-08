@@ -35,12 +35,18 @@ Lobbies are temporary — they only exist while they have ≥1 member.
 
 ## Tech stack
 - **Frontend:** plain HTML/CSS/JS, no framework, no build step.
-- **Backend/Auth/DB:** [Supabase](https://supabase.com) — free, no credit card, open-source Firebase alternative. Bundles auth + Postgres, both callable directly from frontend JS via `supabase-js` — no custom server needed.
+- **Backend/Auth/DB:** [Nhost](https://nhost.io) — free, open-source Firebase alternative built on Hasura GraphQL + Postgres. Bundles auth + a GraphQL API, both callable directly from frontend JS via `@nhost/nhost-js` — no custom server needed. **Switched from an earlier Supabase plan (2026-07-08)** — same rationale (free, open-source, no credit card), the trainee just ended up signing up with Nhost instead.
 - **Hosting:** free static hosting (Netlify/Vercel/GitHub Pages — not chosen yet), online from day one since every friend needs their own device/login.
 - **Multi-user:** real per-person accounts, not a shared device.
 
-## Database schema (Supabase/Postgres, 7 tables)
-- **`profiles`** — `id` (→ Supabase Auth user), `display_name`, `is_admin` (bool).
+## Nhost project (created 2026-07-08)
+- Organization: `chrylox`. App name: "who liked it". Region: `eu-central-1`. Subdomain: `yywxtheekjcruhephgqw`.
+- Live service URLs: GraphQL `https://yywxtheekjcruhephgqw.graphql.eu-central-1.nhost.run/v1`, Auth `https://yywxtheekjcruhephgqw.auth.eu-central-1.nhost.run/v1`, Storage follows the same `https://yywxtheekjcruhephgqw.storage.eu-central-1.nhost.run/v1` pattern. Confirmed live (both GraphQL and Auth respond 200).
+- Database is currently empty — no custom tables/permissions yet, just Nhost's defaults. The schema below hasn't been created there yet.
+- The trainee's Personal Access Token is stored in `~/.claude/tokens.env` as `NHOST_PAT` (account-level; exchange it for a short-lived access token via the Auth service's `/v1/signin/pat` endpoint before calling the control-plane GraphQL API at `https://otsispdzcwxyqzbfntmj.graphql.eu-central-1.nhost.run/v1` to manage the project itself — separate from the project's own GraphQL API above).
+
+## Database schema (Nhost/Postgres via Hasura, 7 tables)
+- **`profiles`** — `id` (→ Nhost Auth user), `display_name`, `is_admin` (bool).
 - **`lobbies`** — `id`, `code` (unique 6-digit), `name`, `organizer_id` (→ profiles, mutable/current), `created_by` (→ profiles, immutable/history), `created_at`, `is_open`.
 - **`lobby_members`** — `lobby_id`, `user_id`, `joined_at` (drives Organizer-transfer order and "last member left" detection).
 - **`posts`** — a submitted video: `submitted_by` (→ profiles, also the owner), video URL, timestamp. No `lobby_id` — it's a personal pool. Never deleted.
@@ -48,14 +54,15 @@ Lobbies are temporary — they only exist while they have ≥1 member.
 - **`game_rounds`** — `id`, `game_id`, `round_number`, `post_id` (the video drawn, hidden until reveal), `revealed_at`.
 - **`guesses`** — `round_id`, `guesser_id`, `guessed_user_id`, `created_at`, `correct` (bool).
 
-Standings = aggregate `guesses.correct` grouped by guesser within one `game_id` — gives "resets every game" and "wiped on lobby close" for free via cascade deletes, while `posts` survive since they don't reference a lobby at all. Admin is derived (`profiles.is_admin`); Organizer is not (`lobbies.organizer_id`, mutable).
+Standings = aggregate `guesses.correct` grouped by guesser within one `game_id` — gives "resets every game" and "wiped on lobby close" for free via cascade deletes, while `posts` survive since they don't reference a lobby at all. Admin is derived (`profiles.is_admin`); Organizer is not (`lobbies.organizer_id`, mutable). On Hasura this maps to normal tables + row-level Hasura permissions instead of Postgres RLS policies.
 
 ## Current status
 - ✅ **Design fully settled** — everything above is decided, not tentative.
-- ✅ **Mockup complete and fully interactive**: [`who-liked-it-mockup-v3.html`](./who-liked-it-mockup-v3.html) — open directly in any browser (or on a phone; it's responsive with light/dark auto theming). Covers every screen: sign in/register, submit video, create/join lobbies, full waiting-room → 8-round game → final-standings flow, profile with photo upload, and an Admin tab (roster search, video moderation, delete confirmation). Session persists via `localStorage`, mirroring what real Supabase Auth will do.
+- ✅ **Mockup complete and fully interactive**: [`who-liked-it-mockup-v3.html`](./who-liked-it-mockup-v3.html) — open directly in any browser (or on a phone; it's responsive with light/dark auto theming). Covers every screen: sign in/register, submit video, create/join lobbies, full waiting-room → 8-round game → final-standings flow, profile with photo upload, and an Admin tab (roster search, video moderation, delete confirmation, open-lobbies list). Session persists via `localStorage`, mirroring what real Nhost Auth will do.
 - ✅ **Repo live** at `github.com/chrylox/who-liked-it`, with this handoff, the mockup, and the roles diagram committed.
-- ✅ **Issue tracker set up** — see `github.com/chrylox/who-liked-it/issues` for the backend build roadmap (creating the Supabase project, scaffolding real frontend files, real auth, real Submit Video, real game engine, real Admin panel, deployment) and any open bugs.
-- ⏳ **Not started yet: the real Supabase-backed app.** The mockup is a click-through preview only — no real accounts, database, or persistence beyond the browser's `localStorage`.
+- ✅ **Nhost project live** (see above) — organization, app, and both GraphQL/Auth endpoints confirmed working. No schema yet.
+- ✅ **Issue tracker set up** — see `github.com/chrylox/who-liked-it/issues` for the backend build roadmap (scaffolding real frontend files, real auth, real Submit Video, real game engine, real Admin panel, deployment) and any open bugs.
+- ⏳ **Not started yet: the real Nhost-backed app.** The mockup is a click-through preview only — no real accounts, database, or persistence beyond the browser's `localStorage`.
 
 ## How to resume
-The very next step is creating the Supabase project (sign up at supabase.com, no credit card, create a project, note the Project URL + anon key from Settings → API — tracked as issue #2). After that, work through the remaining open GitHub issues in order — they cover the rest of the build roadmap. Use `who-liked-it-mockup-v3.html` as the reference for how every screen should look and behave.
+The Nhost project already exists (see above) — the next step is building the database schema on it (the 7 tables above, plus Hasura permissions per role) — this replaces the old "create Supabase project" issue. After that, work through the remaining open GitHub issues in order — they cover the rest of the build roadmap. Use `who-liked-it-mockup-v3.html` as the reference for how every screen should look and behave.
