@@ -1,0 +1,103 @@
+<meta charset="UTF-8">
+<title>Who Liked It?</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="stylesheet" href="style.css">
+
+<div class="masthead">
+  <h1>Who Liked It?</h1>
+  <p class="sub">Submit videos anytime, join a lobby with friends, and guess who liked what.</p>
+  <div id="accountControls">
+    <div class="session-status" id="sessionStatus">Not signed in</div>
+  </div>
+</div>
+
+<button class="profile-corner-btn" id="profileCornerBtn" type="button" aria-label="Profile settings" style="display:none;">
+  <span class="avatar avatar-you profile-avatar-sm" id="profileCornerAvatar">
+    <span class="avatar-initial" id="profileCornerInitial">?</span>
+  </span>
+</button>
+
+<div class="stage">
+  <div class="tabs" role="tablist" id="tabsRow">
+    <button class="tab" aria-selected="true" data-target="access" id="accessTab">Access</button>
+    <button class="tab tab-locked" aria-selected="false" data-target="submit" id="submitTab">Submit Video</button>
+    <button class="tab tab-locked" aria-selected="false" data-target="home" id="homeTab">Lobbies</button>
+    <button class="tab tab-hidden" aria-selected="false" data-target="admin" id="adminTab">Admin</button>
+  </div>
+
+  <div class="board">
+    <!-- ACCESS PANEL -->
+    <section class="panel active" id="access">
+      <h2 class="panel-title" id="accessTitle">Sign In</h2>
+      <p class="panel-flavor">One account, any number of lobbies. Sign in to get started.</p>
+
+      <div class="switcher">
+        <button class="active" data-mode="signin" type="button">Sign In</button>
+        <button data-mode="register" type="button">Register</button>
+      </div>
+
+      <form id="accessForm">
+        <div class="field" data-register-only style="display:none;">
+          <label for="name">Display Name</label>
+          <input type="text" id="name" placeholder="Mia" autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="mia@example.com" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="pass">Password</label>
+          <input type="password" id="pass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" required minlength="3" />
+        </div>
+        <p class="join-error" id="accessError" style="display:none;"></p>
+        <button class="btn" id="enterBtn" type="submit">Enter</button>
+      </form>
+
+      <div id="checkEmailNotice" style="display:none;">
+        <p class="panel-flavor">Almost there — we've sent a confirmation link to <strong id="checkEmailAddress"></strong>. Click it, then come back and sign in.</p>
+        <button class="btn secondary" id="backToSignInBtn" type="button">Back to Sign In</button>
+      </div>
+    </section>
+
+    <!-- SUBMIT VIDEO PANEL — real feature coming in a follow-up (issue #5) -->
+    <section class="panel" id="submit">
+      <h2 class="panel-title">Submit a Video</h2>
+      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+    </section>
+
+    <!-- LOBBIES PANEL — real feature coming in a follow-up (issue #6) -->
+    <section class="panel" id="home">
+      <h2 class="panel-title">Lobbies</h2>
+      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+    </section>
+
+    <!-- ADMIN PANEL — shown to real admins already; full functionality coming in a follow-up (issue #7 / #23) -->
+    <section class="panel" id="admin">
+      <h2 class="panel-title">Admin</h2>
+      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+    </section>
+
+    <!-- PROFILE -->
+    <div class="profile-dropdown" id="profileDropdown" style="display:none;">
+      <div class="profile-pic-row">
+        <span class="avatar avatar-you profile-avatar-lg" id="profilePicPreview">
+          <span class="avatar-initial" id="profilePicInitial">?</span>
+        </span>
+      </div>
+      <div class="field">
+        <label for="profileName">Display Name</label>
+        <input type="text" id="profileName" />
+      </div>
+      <div class="field">
+        <label for="profileEmail">Email</label>
+        <input type="email" id="profileEmail" disabled title="Email changes aren't supported yet" />
+      </div>
+      <p class="footer-note-inline" id="profileSavedNote" style="display:none;">Saved!</p>
+      <p class="join-error" id="profileError" style="display:none;"></p>
+      <button class="btn secondary" id="saveProfileBtn" type="button">Save Changes</button>
+      <button class="btn secondary" id="logoutBtn" type="button">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
