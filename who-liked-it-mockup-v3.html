@@ -1,6 +1,6 @@
 <meta charset="UTF-8">
 <title>Who Liked It? — App Mockup v3</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root {
     --bg: #f2f3f7;
@@ -73,6 +73,13 @@
   }
 
   .masthead { text-align: center; margin-bottom: 20px; max-width: 560px; }
+
+  /* Full-takeover in-game state (see showGameScreen/hideGameScreen) also hides
+     the title/subtitle, not just the tab bar and account controls — on a phone
+     screen every bit of vertical space above the video matters. */
+  body.game-active .masthead h1,
+  body.game-active .masthead .sub { display: none; }
+  body.game-active .masthead { margin-bottom: 6px; }
 
   .masthead h1 {
     font-family: var(--font-sans);
@@ -185,6 +192,11 @@
     margin-bottom: 8px;
   }
   .game-header .panel-title { margin: 0; }
+
+  /* Live round takes over the whole viewport like a real video feed — the
+     lobby-name header/code badge only make sense in the waiting room and
+     final results, not while a video is actually playing (see showLobbyState). */
+  body.round-active .game-header { display: none; }
   .game-header .exit-note {
     font-family: var(--font-sans);
     font-size: 11px;
@@ -586,6 +598,66 @@
     overflow: hidden;
     box-shadow: var(--shadow-md);
     background: #000;
+  }
+
+  /* The live round is always shown edge-to-edge, like a real video feed —
+     it's the one screen where players spend most of their time, so on a
+     phone every pixel should go to the video, not a card frame around it. */
+  #lobbyGame.active {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: #05060a;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #lobbyGame.active .video-stage {
+    flex: 1;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: auto;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #lobbyGame.active #miniStandingsWrap {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 78px;
+    z-index: 7;
+    background: rgba(10,10,16,0.82);
+    backdrop-filter: blur(4px);
+    border-radius: 14px;
+    padding: 12px 14px;
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+  #lobbyGame.active #miniStandingsWrap .pool-title,
+  #lobbyGame.active #miniStandingsWrap .rank,
+  #lobbyGame.active #miniStandingsWrap .standing-name,
+  #lobbyGame.active #miniStandingsWrap .points { color: #fff; }
+
+  .video-leave-btn {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 6;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
   }
 
   .video-fullscreen {
@@ -1244,6 +1316,7 @@
            Sheet auto-closes on lock; the reveal plays out on the video itself. -->
       <div class="lobby-state" id="lobbyGame">
         <div class="video-stage" id="videoStage">
+          <button class="video-leave-btn" id="videoLeaveBtn" type="button" aria-label="Leave lobby (forfeits this game)">&times;</button>
           <div class="round-tracker round-tracker-overlay" id="roundTracker">Round 1 / 8</div>
 
           <div class="video-fullscreen">
@@ -1275,7 +1348,6 @@
           <div class="pool-title">Standings After This Round</div>
           <ul class="standings-list" id="miniStandings"></ul>
         </div>
-        <p class="footer-note-inline"><button class="btn secondary small" id="leaveGameBtn">Leave Lobby (Forfeit This Game)</button></p>
       </div>
 
       <!-- FINAL RESULTS -->
@@ -1464,7 +1536,6 @@
   // ways back are the explicit Leave buttons or finishing the game.
   const tabsRow = document.getElementById('tabsRow');
   const accountControls = document.getElementById('accountControls');
-  const stage = document.querySelector('.stage');
   const lobbyPanel = document.getElementById('lobby');
 
   function showGameScreen() {
@@ -1472,7 +1543,7 @@
     accountControls.style.display = 'none';
     profileCornerBtn.style.display = 'none';
     profileDropdown.style.display = 'none';
-    stage.classList.add('in-game');
+    document.body.classList.add('game-active');
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     lobbyPanel.classList.add('active');
   }
@@ -1480,8 +1551,9 @@
   function hideGameScreen(targetTabId) {
     tabsRow.classList.remove('hidden');
     accountControls.style.display = '';
+    document.body.classList.remove('game-active');
+    document.body.classList.remove('round-active');
     if (signedIn) profileCornerBtn.style.display = 'block';
-    stage.classList.remove('in-game');
     goToTab(targetTabId);
   }
 
@@ -1715,7 +1787,7 @@
     hideGameScreen('home');
   }
   document.getElementById('leaveWaitingBtn').addEventListener('click', leaveCurrentLobby);
-  document.getElementById('leaveGameBtn').addEventListener('click', leaveCurrentLobby);
+  document.getElementById('videoLeaveBtn').addEventListener('click', leaveCurrentLobby);
 
   // --- SUBMIT VIDEO: just the submit action, no visible list of what you've
   // sent in before (players never see their own pool, only that it exists) ---
@@ -1790,6 +1862,9 @@
   function showLobbyState(name) {
     document.querySelectorAll('.lobby-state').forEach(s => s.classList.remove('active'));
     document.getElementById('lobby' + name).classList.add('active');
+    // The live round is the one state that takes over the full viewport
+    // edge-to-edge (see #lobbyGame.active and .game-header CSS rules).
+    document.body.classList.toggle('round-active', name === 'Game');
   }
 
   // Built fresh each time a game starts, from whichever 3 people are actually in
