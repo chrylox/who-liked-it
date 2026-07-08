@@ -401,50 +401,16 @@
     line-height: 1.45;
   }
 
-  /* --- LOBBY CARDS --- */
-
-  .lobby-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px;
-    background: var(--surface-2);
-    border-radius: var(--radius-md);
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-  .lobby-card.leaving { opacity: 0; transform: translateX(14px); }
-  .lobby-card-name {
+  .lobby-toast {
     font-family: var(--font-sans);
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--text);
-  }
-  .lobby-card-meta {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    color: var(--text-faint);
-    margin-top: 2px;
-  }
-  .lobby-card-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
-  }
-  .lobby-card-actions {
-    display: flex;
-    gap: 6px;
-  }
-  .lobby-note {
-    font-family: var(--font-sans);
-    font-size: 11.5px;
+    font-size: 12.5px;
+    font-weight: 600;
     color: var(--success);
-    max-width: 170px;
-    text-align: right;
+    background: var(--accent-tint);
+    border-radius: 10px;
+    padding: 10px 14px;
     line-height: 1.4;
+    margin: 0 0 16px;
   }
   .role-badge {
     font-family: var(--font-sans);
@@ -1156,10 +1122,8 @@
           <button class="btn" id="createBtn">Create Lobby</button>
         </div>
 
-        <div class="pool-list">
-          <div class="pool-title" id="lobbyListTitle">Your Lobbies (0)</div>
-        </div>
-        <p class="footer-note-inline">Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes &mdash; videos stay, points don't. Once you leave, the lobby's gone from this list &mdash; you'll need its code again to rejoin.</p>
+        <p class="lobby-toast" id="lobbyToast" style="display:none;"></p>
+        <p class="footer-note-inline">Leaving as Organizer hands the role to whoever's been in the lobby longest. If you're the last one to leave, the lobby closes &mdash; videos stay, points don't. Either way, you'll need the code again to rejoin.</p>
         <p class="footer-note-inline">Once you enter a lobby, Lobbies and Submit Video lock until you leave or the game finishes.</p>
       </div>
     </section>
@@ -1364,7 +1328,7 @@
   </div>
 </div>
 
-<p class="footer-note">Mockup only &mdash; no real accounts, lobbies, videos, or data. Try the whole loop: sign in (reload the page &mdash; you'll stay signed in) &rarr; Submit a Video &rarr; Lobbies &rarr; Enter &rarr; Start Game &rarr; vote through all 8 rounds.</p>
+<p class="footer-note">Mockup only &mdash; no real accounts, lobbies, videos, or data. Try the whole loop: sign in (reload the page &mdash; you'll stay signed in) &rarr; Submit a Video &rarr; Lobbies &rarr; Create Lobby &rarr; Start Game &rarr; vote through all 8 rounds.</p>
 
 <script>
   // --- TOP-LEVEL TABS ---
@@ -1424,6 +1388,9 @@
 
   let signedIn = false;
   let currentLobbyCode = null;
+  let currentLobbyName = null;
+  let currentLobbyIsOrganizer = false;
+  let currentLobbyIsFresh = false;
   // Codes whose game is currently live — Join Lobby refuses these until the game
   // finalizes (or is abandoned), since membership is locked while a game is running.
   const gameStartedCodes = new Set();
@@ -1590,11 +1557,22 @@
 
   // Every member sees the same code (it's in the header badge, not hidden per-role),
   // and the Organizer gets a Kick (×) button on everyone else's chip.
-  function buildMemberListHTML(members) {
-    const youChip = `<div class="member-chip">${youAvatarHTML()}${myName()}&nbsp;<span class="role-badge role-organizer">Organizer</span></div>`;
-    const otherChips = members.map(name =>
-      `<div class="member-chip"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}<button class="kick-btn" data-kick-name="${name}" title="Kick ${name}">&times;</button></div>`
-    ).join('\n    ');
+  function buildMemberListHTML(members, isOrganizer) {
+    const youBadge = isOrganizer
+      ? '<span class="role-badge role-organizer">Organizer</span>'
+      : '<span class="role-badge role-player">Player</span>';
+    const youChip = `<div class="member-chip">${youAvatarHTML()}${myName()}&nbsp;${youBadge}</div>`;
+    // Only the Organizer can kick, and if you're not the Organizer, one of the
+    // other (demo) members must be — assign it to whoever's first in the list.
+    const otherChips = members.map((name, i) => {
+      const badge = (!isOrganizer && i === 0)
+        ? '&nbsp;<span class="role-badge role-organizer">Organizer</span>'
+        : '';
+      const kickBtn = isOrganizer
+        ? `<button class="kick-btn" data-kick-name="${name}" title="Kick ${name}">&times;</button>`
+        : '';
+      return `<div class="member-chip"><span class="avatar avatar-${name.toLowerCase()}">${name[0]}</span>${name}${badge}${kickBtn}</div>`;
+    }).join('\n    ');
     return members.length ? `${youChip}\n    ${otherChips}` : youChip;
   }
 
@@ -1620,19 +1598,21 @@
     ).join('');
   }
 
-  function enterLobby(code) {
+  function enterLobby(code, info) {
     currentLobbyCode = code;
-    const card = document.querySelector(`.lobby-card[data-code="${code}"]`);
-    const name = card ? card.querySelector('.lobby-card-name').textContent : `Lobby #${code}`;
-    const isFresh = card && card.dataset.fresh === 'true';
-    const demoMembers = isFresh ? [] : membersForCode(code);
+    currentLobbyName = (info && info.name) || `Lobby #${code}`;
+    currentLobbyIsFresh = !!(info && info.fresh);
+    currentLobbyIsOrganizer = currentLobbyIsFresh || (info && info.role === 'organizer');
+    const demoMembers = currentLobbyIsFresh ? [] : membersForCode(code);
     currentGameMembers = demoMembers.length ? demoMembers : DEMO_POOL.slice(0, 3);
-    document.getElementById('lobbyHeaderName').textContent = name;
+    document.getElementById('lobbyHeaderName').textContent = currentLobbyName;
     document.getElementById('lobbyCodeBadge').textContent = `CODE: ${code}`;
-    document.getElementById('waitingMemberList').innerHTML = buildMemberListHTML(demoMembers);
-    document.getElementById('waitingFooterNote').textContent = isFresh
+    document.getElementById('waitingMemberList').innerHTML = buildMemberListHTML(demoMembers, currentLobbyIsOrganizer);
+    document.getElementById('waitingFooterNote').textContent = currentLobbyIsFresh
       ? 'You just created this lobby — share its code so others can join. Start Game once your friends are in.'
-      : "As Organizer, you decide when the game begins — everyone else is waiting on you. A game runs for 8 rounds.";
+      : currentLobbyIsOrganizer
+        ? "As Organizer, you decide when the game begins — everyone else is waiting on you. A game runs for 8 rounds."
+        : "Waiting for the Organizer to start the game — you'll be dropped into the first round automatically.";
     renderLineupAndWaiting(currentGameMembers);
     showGameScreen();
     showLobbyState('Waiting');
@@ -1686,83 +1666,28 @@
     });
   });
 
-  function updateLobbyCountTitle() {
-    const count = document.querySelectorAll('[data-home="lobbies"] .lobby-card').length;
-    document.getElementById('lobbyListTitle').textContent = `Your Lobbies (${count})`;
+  // There's no browsable "Your Lobbies" list (not a use case in the diagram —
+  // Player only Joins via code or Creates) — Join/Create drop you straight
+  // into the lobby's waiting room, and leaving just shows a brief toast.
+  const lobbyToast = document.getElementById('lobbyToast');
+  let lobbyToastTimer = null;
+  function showLobbyToast(message) {
+    lobbyToast.textContent = message;
+    lobbyToast.style.display = 'block';
+    clearTimeout(lobbyToastTimer);
+    lobbyToastTimer = setTimeout(() => { lobbyToast.style.display = 'none'; }, 4000);
   }
 
-  function wireLobbyCardButtons(card) {
-    card.querySelector('.enter-btn').addEventListener('click', () => enterLobby(card.dataset.code));
-    card.querySelector('.leave-btn').addEventListener('click', () => performLeave(card));
-  }
-
-  function performLeave(card) {
-    const name = card.querySelector('.lobby-card-name').textContent;
-    const isOrganizer = card.dataset.role === 'organizer';
-    const isFresh = card.dataset.fresh === 'true';
-    const note = document.createElement('div');
-    note.className = 'lobby-note';
-    note.textContent = isOrganizer
-      ? (isFresh
-          ? `You left ${name} — with no other members, the lobby closed.`
-          : 'Organizer role transferred to Mia (longest-standing member). You left — type the code again to rejoin.')
-      : `You left ${name} — type the code again to rejoin.`;
-    card.querySelector('.lobby-card-right').appendChild(note);
-    card.querySelector('.enter-btn').disabled = true;
-    const leaveBtnEl = card.querySelector('.leave-btn');
-    leaveBtnEl.disabled = true;
-    leaveBtnEl.textContent = 'Left';
-    setTimeout(() => {
-      card.classList.add('leaving');
-      setTimeout(() => {
-        card.remove();
-        updateLobbyCountTitle();
-      }, 320);
-    }, 1500);
-  }
-
-  function addLobbyCard(code, infoOverride) {
-    const existing = document.querySelector(`.lobby-card[data-code="${code}"]`);
-    if (existing) return existing;
-    const info = infoOverride || { name: `Lobby #${code}`, meta: 'unknown lobby', role: 'player' };
-    const roleClass = info.role === 'organizer' ? 'role-organizer' : 'role-player';
-    const roleLabel = info.role === 'organizer' ? 'Organizer' : 'Player';
-    const card = document.createElement('div');
-    card.className = 'lobby-card';
-    card.dataset.role = info.role;
-    card.dataset.code = code;
-    if (info.fresh) card.dataset.fresh = 'true';
-    card.innerHTML = `
-      <div class="lobby-card-main">
-        <div class="lobby-card-name">${info.name}</div>
-        <div class="lobby-card-meta">${info.meta}</div>
-      </div>
-      <div class="lobby-card-right">
-        <span class="role-badge ${roleClass}">${roleLabel}</span>
-        <div class="lobby-card-actions">
-          <button class="btn secondary small enter-btn">Enter</button>
-          <button class="btn secondary small leave-btn">Leave</button>
-        </div>
-      </div>`;
-    document.querySelector('[data-home="lobbies"] .pool-list').appendChild(card);
-    wireLobbyCardButtons(card);
-    updateLobbyCountTitle();
-    return card;
-  }
-
-  // Creating a lobby makes you its Organizer and (new) drops you straight into
-  // its waiting room, same as if you'd clicked Enter on it — the only way back
-  // out is the same Leave Lobby button everyone else uses.
+  // Creating a lobby makes you its Organizer and drops you straight into its
+  // waiting room, same as Join does for an existing lobby.
   document.getElementById('createBtn').addEventListener('click', () => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const name = document.getElementById('lobbyName').value.trim() || 'New Lobby';
-    addLobbyCard(code, { name, meta: '1 player', role: 'organizer', fresh: true });
     document.getElementById('lobbyName').value = '';
-    enterLobby(code);
+    enterLobby(code, { name, role: 'organizer', fresh: true });
   });
 
   document.getElementById('joinBtn').addEventListener('click', () => {
-    const btn = document.getElementById('joinBtn');
     const codeInput = document.getElementById('joinCode');
     const errorNote = document.getElementById('joinError');
     const code = codeInput.value.trim();
@@ -1772,19 +1697,25 @@
       return;
     }
     errorNote.style.display = 'none';
-    const original = btn.textContent;
-    btn.textContent = 'Joined!';
-    addLobbyCard(code);
-    setTimeout(() => { btn.textContent = original; }, 1400);
+    codeInput.value = '';
+    enterLobby(code, { name: `Lobby #${code}`, role: 'player' });
   });
 
   // --- LOBBY: LEAVE FROM INSIDE (the only other way out besides finishing the game) ---
   function leaveCurrentLobby() {
-    const card = document.querySelector(`.lobby-card[data-code="${currentLobbyCode}"]`);
-    if (card) performLeave(card);
+    const name = currentLobbyName;
+    const message = currentLobbyIsOrganizer
+      ? (currentLobbyIsFresh
+          ? `You left ${name} — with no other members, the lobby closed.`
+          : 'Organizer role transferred to Mia (longest-standing member). You left — type the code again to rejoin.')
+      : `You left ${name} — type the code again to rejoin.`;
     gameStartedCodes.delete(currentLobbyCode);
     currentLobbyCode = null;
+    currentLobbyName = null;
+    currentLobbyIsOrganizer = false;
+    currentLobbyIsFresh = false;
     hideGameScreen('home');
+    showLobbyToast(message);
   }
   document.getElementById('leaveWaitingBtn').addEventListener('click', leaveCurrentLobby);
   document.getElementById('videoLeaveBtn').addEventListener('click', leaveCurrentLobby);
