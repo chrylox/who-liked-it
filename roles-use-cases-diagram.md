@@ -14,6 +14,9 @@ graph LR
   Player --> P5[🎭 See Reveal: After Everyone Votes]
   Player --> P6[🏆 View Live &amp; Final Standings]
   Player --> P7[⚙️ Edit Profile]
+  P7 --> P7a[🏷️ Display Name: editable, live today]
+  P7 --> P7b[📧 Email: view-only, needs Nhost re-verification flow, issue #27]
+  P7 --> P7c[🖼️ Photo/Avatar: not built yet, needs Nhost Storage, issue #28]
   Player --> P8[🚪 Leave Lobby]
 
   Root --> Organizer(🕵️ Organizer, per lobby, can transfer)
@@ -35,7 +38,7 @@ graph LR
 ## Roles
 
 - **Guest** — someone who has the app link but hasn't registered/logged in yet. Can only register an account or log in; every other tab is visible but locked (greyed out, not clickable) until then.
-- **Player** — anyone with an account. Can submit videos to their own personal pool (not tied to any one lobby), join an existing lobby using its 6-digit code (**blocked while that lobby's game is already running** — joining only works before Start Game or after the game finalizes), or create a brand-new lobby (which makes them that lobby's Organizer). Within a lobby's game they vote each round, see the reveal once everyone in the lobby has voted, view live standings (updated after each round) and final standings (after round 8), and **leave the lobby**. Can also **edit their profile** (display name, email, photo) any time while signed in. A player can be a member of multiple lobbies.
+- **Player** — anyone with an account. Can submit videos to their own personal pool (not tied to any one lobby), join an existing lobby using its 6-digit code (**blocked while that lobby's game is already running** — joining only works before Start Game or after the game finalizes), or create a brand-new lobby (which makes them that lobby's Organizer). Within a lobby's game they vote each round, see the reveal once everyone in the lobby has voted, view live standings (updated after each round) and final standings (after round 8), and **leave the lobby**. Can also **edit their profile** any time while signed in — today that means the display name (live); email is shown but locked (a real change would need Nhost's own re-verification flow, not a plain update — issue #27) and there's no photo/avatar yet (needs Nhost Storage, which isn't set up — issue #28). A player can be a member of multiple lobbies.
 - **Organizer** — a **per-lobby** role, not global: starts as whoever created the lobby, but the role **transfers** if they leave — it passes automatically to whichever remaining member joined that lobby earliest. Does everything a Player does inside that lobby, plus: **starting a game** (an 8-round session that draws from members' personal video pools and resets standings to zero each time it starts — this covers both the first game and any replay), inviting people by sharing the lobby's join code, and **kicking a player — waiting room only, not mid-game**. A kicked player isn't banned; they can rejoin later with the code like anyone else, same as a normal leave. Does **not** manage the evidence pool directly — that's Admin's job.
 - **Admin** — a **global** role, above all lobbies. Can see a list of every open lobby across the app **and close any of them**, search/view the player roster, delete any video/post in any lobby (moderation/cleanup), and separately **delete a player's account entirely** — a destructive, irreversible action (removes them from every lobby and deletes everything they've submitted), so it's called out as its own action and requires confirmation before it happens, distinct from just browsing the roster. Currently just the trainee's own account — no admin-management UI planned for now.
 
