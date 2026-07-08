@@ -17,10 +17,16 @@ const adminTab = document.getElementById("adminTab");
 const sessionStatus = document.getElementById("sessionStatus");
 const profileCornerBtn = document.getElementById("profileCornerBtn");
 const profileCornerInitial = document.getElementById("profileCornerInitial");
+const profileCornerPhoto = document.getElementById("profileCornerPhoto");
 const profileDropdown = document.getElementById("profileDropdown");
 const profilePicInitial = document.getElementById("profilePicInitial");
+const profilePicPhoto = document.getElementById("profilePicPhoto");
+const changePhotoBtn = document.getElementById("changePhotoBtn");
+const photoInput = document.getElementById("photoInput");
 const profileNameInput = document.getElementById("profileName");
 const profileEmailInput = document.getElementById("profileEmail");
+const changeEmailBtn = document.getElementById("changeEmailBtn");
+const emailChangeNotice = document.getElementById("emailChangeNotice");
 const profileSavedNote = document.getElementById("profileSavedNote");
 const profileError = document.getElementById("profileError");
 const saveProfileBtn = document.getElementById("saveProfileBtn");
@@ -45,6 +51,7 @@ const linkInput = document.getElementById("link");
 const fileBtn = document.getElementById("fileBtn");
 const submitError = document.getElementById("submitError");
 const submitSuccess = document.getElementById("submitSuccess");
+const undoSubmitBtn = document.getElementById("undoSubmitBtn");
 const filedUnderName = document.getElementById("filedUnderName");
 
 const lobbyModeButtons = document.querySelectorAll("#home .switcher button");
@@ -138,6 +145,7 @@ function applySession(session) {
     profileCornerInitial.textContent = initial;
     profilePicInitial.textContent = initial;
     filedUnderName.textContent = user.displayName;
+    applyAvatar(user.avatarUrl);
   } else {
     sessionStatus.textContent = "Not signed in";
     sessionStatus.classList.remove("signed-in");
@@ -303,8 +311,11 @@ saveProfileBtn.addEventListener("click", async () => {
       }`,
       variables: { id: currentSession.user.id, name },
     });
-    currentSession.user.displayName = body.data.updateUser.displayName;
-    applySession(currentSession);
+    // A plain mutation on currentSession.user only updates the in-memory copy —
+    // it never touches the SDK's persisted session, so the edit would silently
+    // revert on the next page load despite the database being correct. Forcing
+    // a refresh re-fetches the user and re-persists the session properly.
+    applySession(await nhost.refreshSession(0));
     profileSavedNote.style.display = "block";
     setTimeout(() => {
       profileSavedNote.style.display = "none";
@@ -315,7 +326,99 @@ saveProfileBtn.addEventListener("click", async () => {
   }
 });
 
+// --- Change Email (goes through Nhost's own verification flow, not a raw column update) ---
+changeEmailBtn.addEventListener("click", async () => {
+  if (!currentSession) return;
+  profileError.style.display = "none";
+  emailChangeNotice.style.display = "none";
+  const newEmail = profileEmailInput.value.trim();
+  if (!newEmail || newEmail === currentSession.user.email) return;
+
+  changeEmailBtn.disabled = true;
+  try {
+    await nhost.auth.changeUserEmail({ newEmail });
+    emailChangeNotice.textContent = `Check ${newEmail} for a confirmation link to finish changing your email. Your email stays as ${currentSession.user.email} until then.`;
+    emailChangeNotice.style.display = "block";
+    profileEmailInput.value = currentSession.user.email; // revert the field — the change isn't real yet
+  } catch (err) {
+    profileError.textContent = errorMessageFrom(err);
+    profileError.style.display = "block";
+  } finally {
+    changeEmailBtn.disabled = false;
+  }
+});
+
+// --- Avatar: resized client-side into a small data URL, stored directly in
+// avatarUrl. (Nhost Storage's file-serving endpoint returned persistent 403s
+// despite correct-looking Hasura permissions on storage.files/buckets — see
+// PROJECT_HANDOFF.md for what was tried.) A data URL needs no separate
+// fetch/auth to display anywhere, sidestepping that entirely.
+const AVATAR_SIZE = 128;
+
+function resizeImageToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = AVATAR_SIZE;
+      canvas.height = AVATAR_SIZE;
+      const ctx = canvas.getContext("2d");
+      const scale = Math.max(AVATAR_SIZE / img.width, AVATAR_SIZE / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (AVATAR_SIZE - w) / 2, (AVATAR_SIZE - h) / 2, w, h);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not read that image."));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function applyAvatar(avatarUrl) {
+  const isPhoto = !!(avatarUrl && avatarUrl.startsWith("data:"));
+  profileCornerPhoto.src = isPhoto ? avatarUrl : "";
+  profileCornerPhoto.style.display = isPhoto ? "block" : "none";
+  profilePicPhoto.src = isPhoto ? avatarUrl : "";
+  profilePicPhoto.style.display = isPhoto ? "block" : "none";
+}
+
+changePhotoBtn.addEventListener("click", () => photoInput.click());
+
+photoInput.addEventListener("change", async () => {
+  const file = photoInput.files[0];
+  if (!file || !currentSession) return;
+  profileError.style.display = "none";
+  changePhotoBtn.disabled = true;
+  try {
+    const dataUrl = await resizeImageToDataUrl(file);
+    await nhost.graphql.request({
+      query: `mutation($id: uuid!, $avatarUrl: String!) {
+        updateUser(pk_columns: {id: $id}, _set: {avatarUrl: $avatarUrl}) { id }
+      }`,
+      variables: { id: currentSession.user.id, avatarUrl: dataUrl },
+    });
+    // See the comment on the display-name save handler — a forced refresh
+    // re-persists the session so the change survives a page reload.
+    applySession(await nhost.refreshSession(0));
+  } catch (err) {
+    profileError.textContent = errorMessageFrom(err);
+    profileError.style.display = "block";
+  } finally {
+    changePhotoBtn.disabled = false;
+    photoInput.value = "";
+  }
+});
+
 // --- Submit Video ---
+const TIKTOK_URL_PATTERN = /^https?:\/\/([a-z0-9-]+\.)?tiktok\.com\//i;
+let lastSubmittedPostId = null;
+let undoHideTimer = null;
+
 submitForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!currentSession) return;
@@ -324,17 +427,27 @@ submitForm.addEventListener("submit", async (e) => {
   const url = linkInput.value.trim();
   if (!url) return;
 
+  if (!TIKTOK_URL_PATTERN.test(url)) {
+    submitError.textContent = "That doesn't look like a TikTok link.";
+    submitError.style.display = "block";
+    return;
+  }
+
   fileBtn.disabled = true;
   try {
-    await nhost.graphql.request({
+    const { body } = await nhost.graphql.request({
       query: `mutation($url: String!) { insert_posts_one(object: {video_url: $url}) { id } }`,
       variables: { url },
     });
     submitForm.reset();
+    lastSubmittedPostId = body.data.insert_posts_one.id;
+    undoSubmitBtn.style.display = "inline-block";
     submitSuccess.style.display = "block";
-    setTimeout(() => {
+    if (undoHideTimer) clearTimeout(undoHideTimer);
+    undoHideTimer = setTimeout(() => {
       submitSuccess.style.display = "none";
-    }, 2000);
+      lastSubmittedPostId = null;
+    }, 15000);
   } catch (err) {
     submitError.textContent = isConstraintViolation(err)
       ? "You've already submitted this exact video."
@@ -342,6 +455,23 @@ submitForm.addEventListener("submit", async (e) => {
     submitError.style.display = "block";
   } finally {
     fileBtn.disabled = false;
+  }
+});
+
+undoSubmitBtn.addEventListener("click", async () => {
+  if (!lastSubmittedPostId) return;
+  const postId = lastSubmittedPostId;
+  lastSubmittedPostId = null;
+  if (undoHideTimer) clearTimeout(undoHideTimer);
+  try {
+    await nhost.graphql.request({
+      query: `mutation($id: uuid!) { delete_posts_by_pk(id: $id) { id } }`,
+      variables: { id: postId },
+    });
+    submitSuccess.style.display = "none";
+  } catch (err) {
+    submitError.textContent = errorMessageFrom(err);
+    submitError.style.display = "block";
   }
 });
 

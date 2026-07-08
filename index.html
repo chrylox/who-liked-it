@@ -13,6 +13,7 @@
 
 <button class="profile-corner-btn" id="profileCornerBtn" type="button" aria-label="Profile settings" style="display:none;">
   <span class="avatar avatar-you profile-avatar-sm" id="profileCornerAvatar">
+    <img class="avatar-photo" id="profileCornerPhoto" alt="" style="display:none;">
     <span class="avatar-initial" id="profileCornerInitial">?</span>
   </span>
 </button>
@@ -70,7 +71,10 @@
         </div>
         <div class="self-tag-note">Submitted by: <strong id="filedUnderName">You</strong> — hidden until it's drawn in a game.</div>
         <p class="join-error" id="submitError" style="display:none;"></p>
-        <p class="footer-note-inline" id="submitSuccess" style="display:none;">Submitted! It'll join the pool for any lobby you're in.</p>
+        <p class="footer-note-inline" id="submitSuccess" style="display:none;">
+          Submitted! It'll join the pool for any lobby you're in.
+          <button class="btn secondary small" id="undoSubmitBtn" type="button" style="margin-left:8px;">Undo</button>
+        </p>
         <button class="btn" id="fileBtn" type="submit">Submit</button>
       </form>
       <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
@@ -188,8 +192,13 @@
     <div class="profile-dropdown" id="profileDropdown" style="display:none;">
       <div class="profile-pic-row">
         <span class="avatar avatar-you profile-avatar-lg" id="profilePicPreview">
+          <img class="avatar-photo" id="profilePicPhoto" alt="" style="display:none;">
           <span class="avatar-initial" id="profilePicInitial">?</span>
         </span>
+        <div>
+          <button class="btn secondary small" id="changePhotoBtn" type="button">Change Photo</button>
+          <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        </div>
       </div>
       <div class="field">
         <label for="profileName">Display Name</label>
@@ -197,8 +206,10 @@
       </div>
       <div class="field">
         <label for="profileEmail">Email</label>
-        <input type="email" id="profileEmail" disabled title="Email changes aren't supported yet" />
+        <input type="email" id="profileEmail" />
+        <button class="btn secondary small" id="changeEmailBtn" type="button" style="margin-top:8px;">Change Email</button>
       </div>
+      <p class="footer-note-inline" id="emailChangeNotice" style="display:none;"></p>
       <p class="footer-note-inline" id="profileSavedNote" style="display:none;">Saved!</p>
       <p class="join-error" id="profileError" style="display:none;"></p>
       <button class="btn secondary" id="saveProfileBtn" type="button">Save Changes</button>
