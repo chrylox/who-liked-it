@@ -39,6 +39,13 @@ const checkEmailNotice = document.getElementById("checkEmailNotice");
 const checkEmailAddress = document.getElementById("checkEmailAddress");
 const backToSignInBtn = document.getElementById("backToSignInBtn");
 
+const submitForm = document.getElementById("submitForm");
+const linkInput = document.getElementById("link");
+const fileBtn = document.getElementById("fileBtn");
+const submitError = document.getElementById("submitError");
+const submitSuccess = document.getElementById("submitSuccess");
+const filedUnderName = document.getElementById("filedUnderName");
+
 let currentSession = null;
 let isAdmin = false;
 
@@ -85,6 +92,7 @@ function applySession(session) {
     const initial = (user.displayName || "?").charAt(0).toUpperCase();
     profileCornerInitial.textContent = initial;
     profilePicInitial.textContent = initial;
+    filedUnderName.textContent = user.displayName;
   } else {
     sessionStatus.textContent = "Not signed in";
     sessionStatus.classList.remove("signed-in");
@@ -130,8 +138,23 @@ modeButtons.forEach((btn) => {
   });
 });
 
+// nhost.graphql.request throws (not returns) when the GraphQL response contains
+// errors, even on a 200 — the thrown FetchError's `.body` is the full {errors: [...]}
+// GraphQL response, not a plain {message}.
 function errorMessageFrom(err) {
+  if (err && err.body && Array.isArray(err.body.errors) && err.body.errors[0]) {
+    return err.body.errors[0].message;
+  }
   return (err && err.body && err.body.message) || (err && err.message) || "Something went wrong. Please try again.";
+}
+
+function isDuplicateVideoError(err) {
+  return !!(
+    err &&
+    err.body &&
+    Array.isArray(err.body.errors) &&
+    err.body.errors.some((e) => e.extensions && e.extensions.code === "constraint-violation")
+  );
 }
 
 // --- Access form (sign in / register) ---
@@ -222,7 +245,6 @@ saveProfileBtn.addEventListener("click", async () => {
       }`,
       variables: { id: currentSession.user.id, name },
     });
-    if (body.errors) throw new Error(body.errors[0].message);
     currentSession.user.displayName = body.data.updateUser.displayName;
     applySession(currentSession);
     profileSavedNote.style.display = "block";
@@ -232,6 +254,36 @@ saveProfileBtn.addEventListener("click", async () => {
   } catch (err) {
     profileError.textContent = errorMessageFrom(err);
     profileError.style.display = "block";
+  }
+});
+
+// --- Submit Video ---
+submitForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentSession) return;
+  submitError.style.display = "none";
+  submitSuccess.style.display = "none";
+  const url = linkInput.value.trim();
+  if (!url) return;
+
+  fileBtn.disabled = true;
+  try {
+    await nhost.graphql.request({
+      query: `mutation($url: String!) { insert_posts_one(object: {video_url: $url}) { id } }`,
+      variables: { url },
+    });
+    submitForm.reset();
+    submitSuccess.style.display = "block";
+    setTimeout(() => {
+      submitSuccess.style.display = "none";
+    }, 2000);
+  } catch (err) {
+    submitError.textContent = isDuplicateVideoError(err)
+      ? "You've already submitted this exact video."
+      : errorMessageFrom(err);
+    submitError.style.display = "block";
+  } finally {
+    fileBtn.disabled = false;
   }
 });
 

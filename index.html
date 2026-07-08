@@ -59,10 +59,21 @@
       </div>
     </section>
 
-    <!-- SUBMIT VIDEO PANEL — real feature coming in a follow-up (issue #5) -->
+    <!-- SUBMIT VIDEO PANEL -->
     <section class="panel" id="submit">
       <h2 class="panel-title">Submit a Video</h2>
-      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+      <p class="panel-flavor">Liked something you're willing to risk? File it under your own name — it's yours, and any lobby you're a member of can draw it into a game.</p>
+      <form id="submitForm">
+        <div class="field">
+          <label for="link">Video Link</label>
+          <input type="url" id="link" placeholder="tiktok.com/@you/video/7..." required />
+        </div>
+        <div class="self-tag-note">Submitted by: <strong id="filedUnderName">You</strong> — hidden until it's drawn in a game.</div>
+        <p class="join-error" id="submitError" style="display:none;"></p>
+        <p class="footer-note-inline" id="submitSuccess" style="display:none;">Submitted! It'll join the pool for any lobby you're in.</p>
+        <button class="btn" id="fileBtn" type="submit">Submit</button>
+      </form>
+      <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
     </section>
 
     <!-- LOBBIES PANEL — real feature coming in a follow-up (issue #6) -->
