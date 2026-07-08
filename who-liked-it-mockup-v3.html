@@ -1071,7 +1071,7 @@
       <form id="accessForm">
         <div class="field" data-register-only style="display:none;">
           <label for="name">Display Name</label>
-          <input type="text" id="name" placeholder="Mia" autocomplete="name" required />
+          <input type="text" id="name" placeholder="Mia" autocomplete="name" />
         </div>
         <div class="field">
           <label for="email">Email</label>
@@ -1728,6 +1728,11 @@
       modeButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       registerField.style.display = btn.dataset.mode === 'register' ? 'block' : 'none';
+      // Hiding this field with display:none on its wrapper does NOT exempt it
+      // from constraint validation (only the element's own display matters) —
+      // required must be toggled off in Sign In mode or the whole form is
+      // stuck unsubmittable via an invisible field. Verified across engines.
+      document.getElementById('name').required = btn.dataset.mode === 'register';
       document.getElementById('enterBtn').textContent = btn.dataset.mode === 'register' ? 'Create Account' : 'Enter';
       // Lets iOS/Android suggest a strong password on Register, and offer a
       // saved one on Sign In, instead of the same generic password hint.
