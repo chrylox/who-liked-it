@@ -14,8 +14,8 @@ graph LR
   Player --> P6[🏆 View Live &amp; Final Standings]
   Player --> P7[⚙️ Edit Profile]
   P7 --> P7a[🏷️ Display Name: editable, live today]
-  P7 --> P7b[📧 Email: view-only, needs Nhost re-verification flow, issue #27]
-  P7 --> P7c[🖼️ Photo/Avatar: not built yet, needs Nhost Storage, issue #28]
+  P7 --> P7b[📧 Email: real Nhost re-verification flow, live today]
+  P7 --> P7c[🖼️ Photo/Avatar: live today, resized client-side, no Nhost Storage]
   Player --> P8[🚪 Leave Lobby]
 
   Root --> Organizer(🕵️ Organizer, per lobby, can transfer)
@@ -34,6 +34,4 @@ graph LR
   Admin --> A4[🚫 Delete Player Account, destructive, confirmed first]
 
   classDef live fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
-  classDef planned fill:#ffe0b2,stroke:#e65100,color:#e65100,stroke-dasharray: 4 3
-  class P7a live
-  class P7b,P7c planned
+  class P7a,P7b,P7c live
