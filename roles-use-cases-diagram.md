@@ -33,7 +33,14 @@ graph LR
   Admin --> A2[👥 Search &amp; View Player Roster]
   Admin --> A3[🗑️ Delete Any Video]
   Admin --> A4[🚫 Delete Player Account, destructive, confirmed first]
+
+  classDef live fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
+  classDef planned fill:#ffe0b2,stroke:#e65100,color:#e65100,stroke-dasharray: 4 3
+  class P7a live
+  class P7b,P7c planned
 ```
+
+*Under P7 (Edit Profile): green = already live in the app, orange/dashed = planned but not built yet.*
 
 ## Roles
 
