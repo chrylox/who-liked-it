@@ -13,6 +13,11 @@ const accessTab = document.getElementById("accessTab");
 const submitTab = document.getElementById("submitTab");
 const homeTab = document.getElementById("homeTab");
 const adminTab = document.getElementById("adminTab");
+const adminLobbyListTitle = document.getElementById("adminLobbyListTitle");
+const adminLobbyList = document.getElementById("adminLobbyList");
+const adminRoster = document.getElementById("adminRoster");
+const adminError = document.getElementById("adminError");
+const playerSearchInput = document.getElementById("playerSearch");
 
 const sessionStatus = document.getElementById("sessionStatus");
 const profileCornerBtn = document.getElementById("profileCornerBtn");
@@ -903,4 +908,171 @@ playAgainBtn.addEventListener("click", async () => {
 
 backHomeBtn.addEventListener("click", () => {
   exitLobbyView(); // membership is untouched — just stop viewing full-screen
+});
+
+// --- Admin panel ---
+// Uses x-hasura-role: app_admin, granted only to profiles.is_admin=true accounts
+// (see issue #23) — plain `user`-role permissions stay scoped (own row / own
+// posts / lobby-member-only), so every request here explicitly opts into the
+// wider admin role rather than relying on default-role visibility.
+function adminRequest(query, variables) {
+  return nhost.graphql.request({ query, variables }, { headers: { "x-hasura-role": "app_admin" } });
+}
+
+let adminLobbies = [];
+let adminMembers = [];
+let adminUsers = [];
+let adminPosts = [];
+let adminExpandedUserId = null;
+
+async function loadAdminPanel() {
+  adminError.style.display = "none";
+  try {
+    const { body } = await adminRequest(`query {
+      lobbies(where: { is_open: { _eq: true } }) { id code name organizer_id }
+      lobby_members { lobby_id user_id }
+      users { id displayName avatarUrl email }
+      posts { id video_url submitted_by }
+    }`);
+    adminLobbies = body.data.lobbies;
+    adminMembers = body.data.lobby_members;
+    adminUsers = body.data.users;
+    adminPosts = body.data.posts;
+    renderAdminLobbies();
+    renderAdminRoster();
+  } catch (err) {
+    adminError.textContent = errorMessageFrom(err);
+    adminError.style.display = "block";
+  }
+}
+
+function renderAdminLobbies() {
+  adminLobbyListTitle.textContent = `All Open Lobbies (${adminLobbies.length})`;
+  if (!adminLobbies.length) {
+    adminLobbyList.innerHTML = `<div class="admin-evidence-empty">No lobbies currently open.</div>`;
+    return;
+  }
+  adminLobbyList.innerHTML = adminLobbies
+    .map((lob) => {
+      const memberCount = adminMembers.filter((m) => m.lobby_id === lob.id).length;
+      const name = lob.name || "Unnamed Lobby";
+      return `<div class="admin-row">
+        <div>${name}<span class="admin-meta">CODE: ${lob.code} &middot; ${memberCount} member${memberCount === 1 ? "" : "s"}</span></div>
+        <button class="btn secondary small admin-close-lobby-btn" data-lobby-id="${lob.id}">Close</button>
+      </div>`;
+    })
+    .join("");
+}
+
+adminLobbyList.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".admin-close-lobby-btn");
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await adminRequest(`mutation($lobbyId: uuid!) { delete_lobby_members(where: { lobby_id: { _eq: $lobbyId } }) { affected_rows } }`, {
+      lobbyId: btn.dataset.lobbyId,
+    });
+    await loadAdminPanel();
+  } catch (err) {
+    adminError.textContent = errorMessageFrom(err);
+    adminError.style.display = "block";
+    btn.disabled = false;
+  }
+});
+
+function renderAdminRoster() {
+  const term = playerSearchInput.value.trim().toLowerCase();
+  const filtered = adminUsers.filter((u) => (u.displayName || "").toLowerCase().includes(term));
+
+  if (!filtered.length) {
+    adminRoster.innerHTML = term
+      ? `<p class="admin-evidence-empty">No players match &ldquo;${term}&rdquo;.</p>`
+      : `<p class="admin-evidence-empty">No players yet.</p>`;
+    return;
+  }
+
+  adminRoster.innerHTML = filtered
+    .map((u) => {
+      const lobbyCount = adminMembers.filter((m) => m.user_id === u.id).length;
+      const posts = adminPosts.filter((p) => p.submitted_by === u.id);
+      const initial = (u.displayName || "?").charAt(0).toUpperCase();
+      const expanded = adminExpandedUserId === u.id;
+      const isSelf = currentSession && u.id === currentSession.user.id;
+      const videoRows = posts.length
+        ? posts
+            .map(
+              (p) => `<div class="admin-row">
+                <div>${p.video_url}<span class="admin-meta">Submitted by ${u.displayName}</span></div>
+                <button class="btn secondary small admin-remove-btn" data-post-id="${p.id}">Delete</button>
+              </div>`
+            )
+            .join("")
+        : `<div class="admin-evidence-empty">No videos submitted yet.</div>`;
+      return `<div class="admin-person${expanded ? " expanded" : ""}" data-user-id="${u.id}">
+        <div class="admin-row admin-row-clickable">
+          <div><span class="admin-inline-avatar avatar-you">${initial}</span>${u.displayName}<span class="admin-meta">${lobbyCount} active lobby${lobbyCount === 1 ? "" : "s"} &middot; ${posts.length} video${posts.length === 1 ? "" : "s"} submitted</span></div>
+          <div class="admin-row-actions">
+            <button class="btn secondary small admin-expand-btn">Manage ${expanded ? "&#9652;" : "&#9662;"}</button>
+            ${isSelf ? "" : `<button class="btn secondary small admin-remove-person-btn">Remove</button>`}
+          </div>
+        </div>
+        <div class="admin-evidence-list" style="display:${expanded ? "block" : "none"};">${videoRows}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+playerSearchInput.addEventListener("input", renderAdminRoster);
+
+adminRoster.addEventListener("click", async (e) => {
+  const removeBtn = e.target.closest(".admin-remove-person-btn");
+  const deleteVideoBtn = e.target.closest(".admin-remove-btn");
+  const person = e.target.closest(".admin-person");
+
+  if (deleteVideoBtn) {
+    deleteVideoBtn.disabled = true;
+    try {
+      await adminRequest(`mutation($id: uuid!) { delete_posts_by_pk(id: $id) { id } }`, { id: deleteVideoBtn.dataset.postId });
+      await loadAdminPanel();
+    } catch (err) {
+      adminError.textContent = errorMessageFrom(err);
+      adminError.style.display = "block";
+      deleteVideoBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (removeBtn) {
+    const name = person.querySelector(".admin-inline-avatar").nextSibling.textContent;
+    const confirmed = window.confirm(
+      `Delete ${name}'s account? This removes them from every lobby and deletes everything they've submitted — this can't be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      const { body } = await adminRequest(`mutation($id: uuid!) { deleteUsers(where: { id: { _eq: $id } }) { returning { id } } }`, {
+        id: person.dataset.userId,
+      });
+      if (!body.data.deleteUsers.returning.length) {
+        adminError.textContent = "That account couldn't be deleted.";
+        adminError.style.display = "block";
+        return;
+      }
+      await loadAdminPanel();
+    } catch (err) {
+      adminError.textContent = errorMessageFrom(err);
+      adminError.style.display = "block";
+    }
+    return;
+  }
+
+  if (person) {
+    const userId = person.dataset.userId;
+    adminExpandedUserId = adminExpandedUserId === userId ? null : userId;
+    renderAdminRoster();
+  }
+});
+
+adminTab.addEventListener("click", () => {
+  adminExpandedUserId = null;
+  loadAdminPanel();
 });

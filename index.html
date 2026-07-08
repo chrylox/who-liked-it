@@ -182,10 +182,26 @@
       </div>
     </section>
 
-    <!-- ADMIN PANEL — shown to real admins already; full functionality coming in a follow-up (issue #7 / #23) -->
+    <!-- ADMIN PANEL -->
     <section class="panel" id="admin">
       <h2 class="panel-title">Admin</h2>
-      <p class="panel-flavor">Coming soon — this is being wired up next.</p>
+      <p class="panel-flavor">Moderate lobbies, the player roster, and submitted videos.</p>
+
+      <div class="admin-section">
+        <div class="pool-title" id="adminLobbyListTitle">All Open Lobbies (0)</div>
+        <div id="adminLobbyList">
+          <div class="admin-evidence-empty">No lobbies currently open.</div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="pool-title">Player Roster &mdash; click a player to manage their videos</div>
+        <div class="field admin-search-field">
+          <input type="text" id="playerSearch" placeholder="Search players by name&hellip;" aria-label="Search players by name">
+        </div>
+        <p class="join-error" id="adminError" style="display:none;"></p>
+        <div id="adminRoster"></div>
+      </div>
     </section>
 
     <!-- PROFILE -->
