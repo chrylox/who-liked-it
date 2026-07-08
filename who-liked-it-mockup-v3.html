@@ -1149,7 +1149,7 @@
         <label for="profileEmail">Email</label>
         <input type="email" id="profileEmail" value="you@example.com">
       </div>
-      <button class="btn secondary">Save Changes</button>
+      <button class="btn secondary" id="saveProfileBtn" type="button">Save Changes</button>
       <button class="btn secondary" id="logoutBtn">Log Out</button>
     </div>
 
@@ -1161,8 +1161,10 @@
       <p class="panel-flavor">Moderate lobbies, the player roster, and submitted videos.</p>
 
           <div class="admin-section">
-            <div class="pool-title">All Open Lobbies (0)</div>
-            <div class="admin-evidence-empty">No lobbies currently open.</div>
+            <div class="pool-title" id="adminLobbyListTitle">All Open Lobbies (0)</div>
+            <div id="adminLobbyList">
+              <div class="admin-evidence-empty">No lobbies currently open.</div>
+            </div>
           </div>
 
           <div class="admin-section">
@@ -1395,6 +1397,43 @@
   // finalizes (or is abandoned), since membership is locked while a game is running.
   const gameStartedCodes = new Set();
 
+  // Admin's "All Open Lobbies" (A1) — a real backend would query every lobby
+  // across every user; this mockup only has one real account, so it tracks
+  // whatever lobby that account has created/joined and not yet left.
+  const openLobbies = new Map(); // code -> { name, status: 'Waiting' | 'In Game' }
+  function renderAdminLobbies() {
+    const list = document.getElementById('adminLobbyList');
+    document.getElementById('adminLobbyListTitle').textContent = `All Open Lobbies (${openLobbies.size})`;
+    if (!openLobbies.size) {
+      list.innerHTML = '<div class="admin-evidence-empty">No lobbies currently open.</div>';
+      return;
+    }
+    list.innerHTML = [...openLobbies.entries()].map(([code, info]) => `
+      <div class="admin-row">
+        <div>${info.name}<span class="admin-meta">CODE: ${code} &middot; ${info.status}</span></div>
+        <button class="btn secondary small admin-close-lobby-btn" data-code="${code}">Close</button>
+      </div>`).join('');
+  }
+  document.getElementById('adminLobbyList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.admin-close-lobby-btn');
+    if (!btn) return;
+    const code = btn.dataset.code;
+    const wasCurrent = code === currentLobbyCode;
+    openLobbies.delete(code);
+    gameStartedCodes.delete(code);
+    renderAdminLobbies();
+    if (wasCurrent) {
+      currentLobbyCode = null;
+      currentLobbyName = null;
+      currentLobbyIsOrganizer = false;
+      currentLobbyIsFresh = false;
+      // Only actually inside its full-screen view if you never navigated back
+      // to Lobbies after finishing a game — otherwise just drop the membership.
+      if (document.body.classList.contains('game-active')) hideGameScreen('home');
+      showLobbyToast('An Admin closed this lobby.');
+    }
+  });
+
   // Submit Video and Home lock only while signed out (this is unrelated to being
   // inside a lobby — that's handled by the full screen takeover below). Access is
   // the mirror image: it's only ever reachable while signed out, and disappears
@@ -1469,6 +1508,23 @@
     localStorage.removeItem(SESSION_KEY);
     applySession(null);
     goToTab('access');
+  });
+
+  // --- PROFILE: Save Changes persists the edited name/email into the session,
+  // same as sign-in does, instead of just leaving them live in the inputs. ---
+  document.getElementById('saveProfileBtn').addEventListener('click', () => {
+    const btn = document.getElementById('saveProfileBtn');
+    const name = profileNameInput.value.trim() || 'You';
+    const email = profileEmailInput.value.trim() || 'you@example.com';
+    const knownAccounts = getKnownAccounts();
+    knownAccounts[email] = name;
+    localStorage.setItem(KNOWN_ACCOUNTS_KEY, JSON.stringify(knownAccounts));
+    const account = { name, email };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(account));
+    applySession(account);
+    const original = btn.textContent;
+    btn.textContent = 'Saved!';
+    setTimeout(() => { btn.textContent = original; }, 1400);
   });
 
   // --- PROFILE: corner button opens/closes the dropdown; outside click closes it ---
@@ -1616,6 +1672,8 @@
     renderLineupAndWaiting(currentGameMembers);
     showGameScreen();
     showLobbyState('Waiting');
+    openLobbies.set(code, { name: currentLobbyName, status: 'Waiting' });
+    renderAdminLobbies();
   }
 
   // Organizer kicks a member: their chip fades out and disappears, and they're
@@ -1709,6 +1767,14 @@
           ? `You left ${name} — with no other members, the lobby closed.`
           : 'Organizer role transferred to Mia (longest-standing member). You left — type the code again to rejoin.')
       : `You left ${name} — type the code again to rejoin.`;
+    // A solo (freshly created) lobby closes when its only member leaves; a
+    // joined lobby's demo members are still "in it", so it stays open.
+    if (currentLobbyIsFresh) {
+      openLobbies.delete(currentLobbyCode);
+    } else if (openLobbies.has(currentLobbyCode)) {
+      openLobbies.get(currentLobbyCode).status = 'Waiting';
+    }
+    renderAdminLobbies();
     gameStartedCodes.delete(currentLobbyCode);
     currentLobbyCode = null;
     currentLobbyName = null;
@@ -1858,6 +1924,10 @@
 
   document.getElementById('startGameBtn').addEventListener('click', () => {
     gameStartedCodes.add(currentLobbyCode);
+    if (openLobbies.has(currentLobbyCode)) {
+      openLobbies.get(currentLobbyCode).status = 'In Game';
+      renderAdminLobbies();
+    }
     currentRoundIndex = 0;
     ROUNDS = buildRounds(currentGameMembers);
     resetStandings();
@@ -1937,6 +2007,10 @@
         showLobbyState('Final');
         // Game's finalized — joining is allowed again until Start Game locks it once more.
         gameStartedCodes.delete(currentLobbyCode);
+        if (openLobbies.has(currentLobbyCode)) {
+          openLobbies.get(currentLobbyCode).status = 'Waiting';
+          renderAdminLobbies();
+        }
       }
     }, 2600);
   }
