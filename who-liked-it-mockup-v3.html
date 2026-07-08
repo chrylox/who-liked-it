@@ -281,7 +281,9 @@
   input[type="text"], input[type="email"], input[type="password"], input[type="url"] {
     width: 100%;
     font-family: var(--font-sans);
-    font-size: 15px;
+    /* Must stay >= 16px — iOS Safari auto-zooms the page when a focused
+       input's font-size is smaller than that. */
+    font-size: 16px;
     padding: 12px 14px;
     border: 1.5px solid var(--border);
     background: var(--surface-2);
@@ -1066,19 +1068,21 @@
         <button data-mode="register">Register</button>
       </div>
 
-      <div class="field" data-register-only style="display:none;">
-        <label for="name">Display Name</label>
-        <input type="text" id="name" placeholder="Mia" />
-      </div>
-      <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="mia@example.com" />
-      </div>
-      <div class="field">
-        <label for="pass">Password</label>
-        <input type="password" id="pass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
-      </div>
-      <button class="btn" id="enterBtn">Enter</button>
+      <form id="accessForm">
+        <div class="field" data-register-only style="display:none;">
+          <label for="name">Display Name</label>
+          <input type="text" id="name" placeholder="Mia" autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="mia@example.com" autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="pass">Password</label>
+          <input type="password" id="pass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+        </div>
+        <button class="btn" id="enterBtn" type="submit">Enter</button>
+      </form>
     </section>
 
     <!-- SUBMIT VIDEO PANEL (its own top-level tab, deliberately one click away) -->
@@ -1486,7 +1490,11 @@
     goToTab('submit');
   }
 
-  document.getElementById('enterBtn').addEventListener('click', () => {
+  // A real <form> + submit listener (rather than a plain button click) means
+  // the keyboard's Enter/Go action submits it too, not just tapping the button
+  // — on phone, players expect the keyboard action key to just work.
+  document.getElementById('accessForm').addEventListener('submit', (e) => {
+    e.preventDefault();
     const isRegister = document.querySelector('#access .switcher button.active').dataset.mode === 'register';
     const email = document.getElementById('email').value || 'you@example.com';
     const knownAccounts = getKnownAccounts();
@@ -1707,6 +1715,9 @@
       btn.classList.add('active');
       registerField.style.display = btn.dataset.mode === 'register' ? 'block' : 'none';
       document.getElementById('enterBtn').textContent = btn.dataset.mode === 'register' ? 'Create Account' : 'Enter';
+      // Lets iOS/Android suggest a strong password on Register, and offer a
+      // saved one on Sign In, instead of the same generic password hint.
+      document.getElementById('pass').setAttribute('autocomplete', btn.dataset.mode === 'register' ? 'new-password' : 'current-password');
     });
   });
 
