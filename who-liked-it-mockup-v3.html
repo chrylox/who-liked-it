@@ -1071,16 +1071,17 @@
       <form id="accessForm">
         <div class="field" data-register-only style="display:none;">
           <label for="name">Display Name</label>
-          <input type="text" id="name" placeholder="Mia" autocomplete="name" />
+          <input type="text" id="name" placeholder="Mia" autocomplete="name" required />
         </div>
         <div class="field">
           <label for="email">Email</label>
-          <input type="email" id="email" placeholder="mia@example.com" autocomplete="email" />
+          <input type="email" id="email" placeholder="mia@example.com" autocomplete="email" required />
         </div>
         <div class="field">
           <label for="pass">Password</label>
-          <input type="password" id="pass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+          <input type="password" id="pass" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" required />
         </div>
+        <p class="join-error" id="registerError" style="display:none;">An account with this email already exists &mdash; sign in instead.</p>
         <button class="btn" id="enterBtn" type="submit">Enter</button>
       </form>
     </section>
@@ -1493,19 +1494,27 @@
   // A real <form> + submit listener (rather than a plain button click) means
   // the keyboard's Enter/Go action submits it too, not just tapping the button
   // — on phone, players expect the keyboard action key to just work.
+  const registerError = document.getElementById('registerError');
   document.getElementById('accessForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const isRegister = document.querySelector('#access .switcher button.active').dataset.mode === 'register';
-    const email = document.getElementById('email').value || 'you@example.com';
+    const email = document.getElementById('email').value;
     const knownAccounts = getKnownAccounts();
     let name;
     if (isRegister) {
-      name = document.getElementById('name').value || 'You';
+      // An email that's already registered must sign in instead — otherwise
+      // this would silently overwrite (hijack) whoever already owns it.
+      if (knownAccounts[email]) {
+        registerError.style.display = 'block';
+        return;
+      }
+      name = document.getElementById('name').value;
       knownAccounts[email] = name;
       localStorage.setItem(KNOWN_ACCOUNTS_KEY, JSON.stringify(knownAccounts));
     } else {
       name = knownAccounts[email] || 'You';
     }
+    registerError.style.display = 'none';
     const account = { name, email };
     localStorage.setItem(SESSION_KEY, JSON.stringify(account));
     applySession(account);
@@ -1516,6 +1525,11 @@
     localStorage.removeItem(SESSION_KEY);
     applySession(null);
     goToTab('access');
+    // This is a shared-device party game — a phone gets passed between
+    // friends, so the next person signing in shouldn't see the previous
+    // person's name/email/password still sitting in the form.
+    document.getElementById('accessForm').reset();
+    document.querySelector('#access .switcher button[data-mode="signin"]').click();
   });
 
   // --- PROFILE: Save Changes persists the edited name/email into the session,
@@ -1718,6 +1732,7 @@
       // Lets iOS/Android suggest a strong password on Register, and offer a
       // saved one on Sign In, instead of the same generic password hint.
       document.getElementById('pass').setAttribute('autocomplete', btn.dataset.mode === 'register' ? 'new-password' : 'current-password');
+      registerError.style.display = 'none';
     });
   });
 
