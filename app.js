@@ -869,7 +869,13 @@ function showVideoForRound(round) {
   videoRemovedNote.style.display = "none";
   const id = extractTikTokVideoId(round.post.video_url);
   if (id) {
-    videoEmbedIframe.src = `https://www.tiktok.com/embed/v2/${id}`;
+    // /player/v1/ is TikTok's dedicated Embed Player, not their full social
+    // card (/embed/v2/ shows the caption, music-info line, like/comment/share
+    // counts, and a follow button — this doesn't). music_info=0&description=0
+    // explicitly suppresses the two chrome elements /player/v1/ still shows by
+    // default, so this round's video doesn't hint at whose account it is via
+    // caption text or a visible username before the reveal.
+    videoEmbedIframe.src = `https://www.tiktok.com/player/v1/${id}?music_info=0&description=0`;
     videoEmbedIframe.style.display = "block";
     videoFallbackLink.style.display = "none";
   } else {
