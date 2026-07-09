@@ -1,6 +1,8 @@
 # Who Liked It?
 
-A party game for friend groups, inspired by the classic "3 friends arguing over who liked a video in the shared Liked tab" moment on TikTok. Everyone secretly submits links to videos they've personally liked into their own pool. Each round, the app randomly draws one submitted video without saying whose it is, and the group votes on who they think liked it. Once everyone's guessed, the answer is revealed at once and points go to whoever guessed right — 8 rounds per game, then final standings, and the same group of friends can replay endlessly. Players join or create lobbies with a 6-digit code, and an Organizer (whoever created the lobby, with the role transferring if they leave) starts games and manages who's in the waiting room. Since TikTok has no public API for reading someone's Liked Videos or inbox, there's no scraping or burner-account trickery — submission is simply self-service, straight into the app's own database. It's built with plain HTML/CSS/JS on the frontend and Supabase for auth and the database, with no custom backend server needed. Right now this is a personal learning project in the design/prototyping stage: the concept, roles, and schema are fully designed, and a clickable HTML mockup ([`who-liked-it-mockup-v3.html`](./who-liked-it-mockup-v3.html)) exists to preview every screen, but the real Supabase-backed app hasn't been built yet. Full decision history lives in [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md).
+A party game for friend groups, inspired by the classic "3 friends arguing over who liked a video in the shared Liked tab" moment on TikTok. Everyone secretly submits links to videos they've personally liked into their own pool. Each round, the app randomly draws one submitted video without saying whose it is, and the group votes on who they think liked it. Once everyone's guessed, the answer is revealed at once and points go to whoever guessed right — up to 8 rounds per game (fewer if the group's pool is smaller), then final standings, and the same group of friends can replay endlessly. Players join or create lobbies with a 6-digit code, and an Organizer (whoever created the lobby, with the role transferring if they leave) starts games and manages who's in the waiting room. Since TikTok has no public API for reading someone's Liked Videos or inbox, there's no scraping or burner-account trickery — submission is simply self-service, straight into the app's own database.
+
+**Live and fully built** at **https://chrylox.github.io/who-liked-it/** — plain HTML/CSS/JS on the frontend (no framework, no build step), [Nhost](https://nhost.io) (Hasura GraphQL + Postgres + Auth) on the backend, no custom server. Every role below (Guest, Player, Organizer, Admin) is real, not mocked. Full decision history, schema, and current status live in [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md) — read that first if you're picking this project up.
 
 ## Roles
 
@@ -18,8 +20,11 @@ graph LR
   Player --> P3[📼 Submit Video: Personal Pool]
   Player --> P4[🗳️ Vote Each Round]
   Player --> P5[🎭 See Reveal: After Everyone Votes]
-  Player --> P6[🏆 View Live & Final Standings]
+  Player --> P6[🏆 View Live &amp; Final Standings]
   Player --> P7[⚙️ Edit Profile]
+  P7 --> P7a[🏷️ Display Name: editable, live today]
+  P7 --> P7b[📧 Email: real Nhost re-verification flow, live today]
+  P7 --> P7c[🖼️ Photo/Avatar: live today, resized client-side, no Nhost Storage]
   Player --> P8[🚪 Leave Lobby]
 
   Root --> Organizer(🕵️ Organizer, per lobby, can transfer)
@@ -32,7 +37,13 @@ graph LR
   O3 -.->|not a ban, can rejoin via code| P1
 
   Root --> Admin(🛡️ Admin, global)
-  Admin --> A1[📋 View & Close Any Lobby]
-  Admin --> A2[👥 Manage Player Roster]
+  Admin --> A1[📋 View &amp; Close Any Lobby]
+  Admin --> A2[👥 Search &amp; View Player Roster]
   Admin --> A3[🗑️ Delete Any Video]
+  Admin --> A4[🚫 Delete Player Account, destructive, confirmed first]
+
+  classDef live fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
+  class P7a,P7b,P7c,A1,A2,A3,A4 live
 ```
+
+*Green nodes are live in the deployed app today. See [`roles-use-cases-diagram.md`](./roles-use-cases-diagram.md) for the same diagram plus a written explanation of each role, and [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md) for the full build history, schema, and open items.*
