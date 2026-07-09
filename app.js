@@ -249,17 +249,19 @@ modeButtons.forEach((btn) => {
 function errorMessageFrom(err) {
   if (err && err.body && Array.isArray(err.body.errors) && err.body.errors[0]) {
     const gqlError = err.body.errors[0];
-    // A RAISE EXCEPTION inside one of our own Postgres functions (start_game's
-    // "need at least 2 players", the guess triggers, etc.) is a message we
-    // deliberately wrote for the end user — but Hasura's top-level `message`
-    // for these is always the generic "database query error"; the real text
-    // only shows up nested in extensions.internal.error.message. Postgres
-    // error code P0001 specifically means "a RAISE EXCEPTION was hit", as
-    // opposed to e.g. a raw unique-constraint violation, which stays generic
-    // on purpose (isConstraintViolation/isPermissionCheckFailure give those
-    // their own friendlier text elsewhere rather than showing raw SQL detail).
+    // Hasura's top-level `message` for any genuinely unexpected DB-layer
+    // failure (code: "unexpected") is always the useless generic "database
+    // query error" — the real Postgres message only shows up nested in
+    // extensions.internal.error.message. This covers deliberate RAISE
+    // EXCEPTIONs (status_code P0001, e.g. start_game's "need at least 2
+    // players") but also genuinely unexpected failures we haven't seen
+    // before (a transient one, still unexplained, is tracked as #40) —
+    // surfacing whatever detail Postgres gives us beats hiding it, since
+    // constraint violations/permission failures never reach this fallback
+    // at all (isConstraintViolation/isPermissionCheckFailure claim those
+    // first at each call site, with their own friendlier text).
     const raised = gqlError.extensions && gqlError.extensions.internal && gqlError.extensions.internal.error;
-    if (raised && raised.status_code === "P0001" && raised.message) return raised.message;
+    if (raised && raised.message) return raised.message;
     return gqlError.message;
   }
   return (err && err.body && err.body.message) || (err && err.message) || "Something went wrong. Please try again.";
