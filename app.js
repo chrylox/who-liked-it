@@ -69,7 +69,6 @@ const lobbyNameInput = document.getElementById("lobbyName");
 const createBtn = document.getElementById("createBtn");
 const createError = document.getElementById("createError");
 
-const lobbyPanel = document.getElementById("lobby");
 const lobbyHeaderName = document.getElementById("lobbyHeaderName");
 const lobbyCodeBadge = document.getElementById("lobbyCodeBadge");
 const lobbyError = document.getElementById("lobbyError");
@@ -888,12 +887,12 @@ function showVideoForRound(round) {
   videoRemovedNote.style.display = "none";
   const id = extractTikTokVideoId(round.post.video_url);
   if (id) {
-    // /player/v1/ is TikTok's dedicated Embed Player, not their full social
-    // card (/embed/v2/ shows the caption, music-info line, like/comment/share
-    // counts, and a follow button — this doesn't). music_info=0&description=0
-    // explicitly suppresses the two chrome elements /player/v1/ still shows by
-    // default, so this round's video doesn't hint at whose account it is via
-    // caption text or a visible username before the reveal.
+    // /player/v1/ is TikTok's dedicated Embed Player — per TikTok's own docs
+    // (developers.tiktok.com/doc/embed-player) its only parameters are
+    // playback controls (progress_bar, volume, fullscreen, etc.); it has no
+    // like/comment/share/follow chrome at all (that's /embed/v2/'s full
+    // social-card widget only). music_info=0&description=0 hides the two
+    // caption/music-info lines it does show by default.
     videoEmbedIframe.src = `https://www.tiktok.com/player/v1/${id}?music_info=0&description=0`;
     videoEmbedIframe.style.display = "block";
     videoFallbackLink.style.display = "none";

@@ -211,21 +211,6 @@
     box-shadow: var(--shadow-md);
   }
 
-  .admin-view-badge {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    font-family: var(--font-sans);
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--accent-contrast);
-    background: var(--accent);
-    padding: 4px 10px;
-    border-radius: 999px;
-  }
-
   .panel { display: none; }
   .panel.active { display: block; animation: fadeIn 0.2s ease; }
 
@@ -369,7 +354,6 @@
     flex-wrap: wrap;
     gap: 6px;
   }
-  .pool-row .sealed { color: var(--text); font-weight: 500; }
   .pool-row .tag {
     background: var(--surface-3);
     color: var(--text-soft);
@@ -399,17 +383,6 @@
     line-height: 1.45;
   }
 
-  .lobby-toast {
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--success);
-    background: var(--accent-tint);
-    border-radius: 10px;
-    padding: 10px 14px;
-    line-height: 1.4;
-    margin: 0 0 16px;
-  }
   .role-badge {
     font-family: var(--font-sans);
     font-size: 10.5px;
@@ -422,8 +395,6 @@
     flex-shrink: 0;
   }
   .role-organizer { background: var(--warn-tint); color: var(--warn); }
-  .role-player { background: var(--surface-3); color: var(--text-soft); }
-  .role-admin { background: var(--danger-tint); color: var(--danger); }
 
   /* --- LOBBY WAITING ROOM --- */
   .member-list {
@@ -456,9 +427,8 @@
     border-radius: 50%;
   }
   .member-chip .kick-btn:hover { background: var(--danger-tint); }
-  .member-chip.kicked { opacity: 0; transform: scale(0.9); transition: opacity 0.2s ease, transform 0.2s ease; }
 
-  /* Shared avatar base — size/context set per usage, color set by .avatar-<name>.
+  /* Shared avatar base — size/context set per usage, color set by .avatar-you.
      position/overflow let any avatar show an uploaded photo, not just the
      profile corner button's — the "You" avatar can appear anywhere. */
   .avatar {
@@ -670,30 +640,6 @@
     inset: 0;
     background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.2), transparent 45%);
   }
-  .play-icon {
-    position: absolute;
-    top: 44%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 16px 0 16px 26px;
-    border-color: transparent transparent transparent rgba(255,255,255,0.85);
-  }
-  .heart {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    font-size: 22px;
-    z-index: 2;
-  }
-  .caption-bar {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    padding: 16px 16px 64px;
-    background: linear-gradient(0deg, rgba(0,0,0,0.7), transparent);
-  }
   .redaction {
     display: inline-block;
     height: 13px;
@@ -826,8 +772,6 @@
   }
   .suspect-row:hover { background: var(--surface-3); }
   .suspect-row .result-icon { margin-left: auto; font-family: var(--font-sans); font-size: 14px; opacity: 0; }
-  .suspect-row.show-result .result-icon { opacity: 1; }
-  .suspect-row.correct-answer { background: var(--success-tint); }
 
   .stamp {
     position: absolute;
@@ -889,15 +833,6 @@
     font-weight: 600;
     font-size: 15px;
     color: var(--text);
-  }
-  .standing-name .streak {
-    display: block;
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--warn);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
   }
   .points {
     font-family: var(--font-mono);
@@ -982,12 +917,7 @@
   .admin-search-field { margin-bottom: 12px; }
   .admin-search-field input { font-size: 14px; padding: 10px 12px; }
 
-  .avatar-lukas { background: #2f9c6e; }
-  .avatar-mia { background: #e0812c; }
-  .avatar-finn { background: #7c5fd4; }
   .avatar-you { background: var(--accent); }
-  .avatar-priya { background: #c9972a; }
-  .avatar-sam { background: #2a92b8; }
 
   .footer-note {
     margin-top: 26px;
