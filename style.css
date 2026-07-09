@@ -469,6 +469,19 @@
     padding: 4px 12px;
   }
 
+  .lobby-mode-badge {
+    display: inline-block;
+    margin-top: 8px;
+    margin-left: 6px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-soft);
+    background: var(--surface-3);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+
   .round-tracker {
     display: inline-block;
     font-family: var(--font-mono);
@@ -640,6 +653,27 @@
     height: 100%;
     border: none;
   }
+
+  /* Spotify's track embed is a compact horizontal widget (cover art + track
+     info + play button), not a 9:16 video — reusing .video-stage's fullscreen
+     black canvas but overriding its shape rather than stretching the widget
+     to fill a vertical video's proportions. Extra classes on both selectors
+     below beat the generic 9:16 rules on specificity regardless of source
+     order. */
+  .video-stage.spotify-mode {
+    aspect-ratio: auto;
+    width: min(100%, 400px);
+    height: 352px;
+    max-height: 352px;
+  }
+  #lobbyGame.active .video-stage.spotify-mode {
+    aspect-ratio: auto;
+    width: min(100%, 400px);
+    max-width: 400px;
+    height: 352px;
+    max-height: 352px;
+    border-radius: var(--radius-lg);
+  }
   .video-fullscreen::after {
     content: "";
     position: absolute;
@@ -686,6 +720,22 @@
   .waiting-overlay .waiting-list-title,
   .waiting-overlay .waiting-row { color: #fff; }
   .waiting-overlay .wait-status { color: #4ade80; }
+
+  /* The bottom-strip layout above assumes a tall 9:16 video with empty room
+     below it — Spotify's compact embed has no such empty room (its own
+     title/play-button row fills right up to the bottom), so a bottom-anchored
+     strip visually collides with that text. Cover the whole box instead. */
+  .video-stage.spotify-mode .waiting-overlay {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 16px;
+  }
 
   /* Corner button: opens the guess sheet, then rides up to sit at the sheet's
      top-right corner so the same button closes it again. */

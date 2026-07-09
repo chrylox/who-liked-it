@@ -60,24 +60,39 @@
       </div>
     </section>
 
-    <!-- SUBMIT VIDEO PANEL -->
+    <!-- SUBMIT VIDEO/SONG PANEL -->
     <section class="panel" id="submit">
-      <h2 class="panel-title">Submit a Video</h2>
+      <h2 class="panel-title">Add to Your Pool</h2>
       <p class="panel-flavor">Liked something you're willing to risk? File it under your own name — it's yours, and any lobby you're a member of can draw it into a game.</p>
-      <form id="submitForm">
-        <div class="field">
-          <label for="link">Video Link</label>
-          <input type="url" id="link" placeholder="tiktok.com/@you/video/7..." required />
-        </div>
-        <div class="self-tag-note">Submitted by: <strong id="filedUnderName">You</strong> — hidden until it's drawn in a game.</div>
-        <p class="join-error" id="submitError" style="display:none;"></p>
-        <p class="footer-note-inline" id="submitSuccess" style="display:none;">
-          Submitted! It'll join the pool for any lobby you're in.
-          <button class="btn secondary small" id="undoSubmitBtn" type="button" style="margin-left:8px;">Undo</button>
-        </p>
-        <button class="btn" id="fileBtn" type="submit">Submit</button>
-      </form>
-      <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
+
+      <div class="switcher" id="poolModeSwitcher">
+        <button class="active" data-poolmode="tiktok" type="button">TikTok Video</button>
+        <button data-poolmode="spotify" type="button">Spotify Song</button>
+      </div>
+
+      <div data-pool-tiktok>
+        <form id="submitForm">
+          <div class="field">
+            <label for="link">Video Link</label>
+            <input type="url" id="link" placeholder="tiktok.com/@you/video/7..." required />
+          </div>
+          <div class="self-tag-note">Submitted by: <strong id="filedUnderName">You</strong> — hidden until it's drawn in a game.</div>
+          <p class="join-error" id="submitError" style="display:none;"></p>
+          <p class="footer-note-inline" id="submitSuccess" style="display:none;">
+            Submitted! It'll join the pool for any lobby you're in.
+            <button class="btn secondary small" id="undoSubmitBtn" type="button" style="margin-left:8px;">Undo</button>
+          </p>
+          <button class="btn" id="fileBtn" type="submit">Submit</button>
+        </form>
+        <p class="footer-note-inline">Coming later: tap Share on a TikTok video and land straight here pre-filled (Android only, iPhone always uses manual paste).</p>
+      </div>
+
+      <div data-pool-spotify style="display:none;">
+        <p class="self-tag-note">Connecting pulls your real Spotify Liked Songs (up to the first 500) straight into your pool &mdash; nothing to paste by hand. Filed under <strong id="filedUnderNameSpotify">You</strong>, same as TikTok.</p>
+        <p class="join-error" id="spotifyError" style="display:none;"></p>
+        <p class="footer-note-inline" id="spotifySuccess" style="display:none;"></p>
+        <button class="btn" id="spotifyConnectBtn" type="button">Connect Spotify &amp; Sync Liked Songs</button>
+      </div>
     </section>
 
     <!-- LOBBIES PANEL -->
@@ -107,6 +122,14 @@
             <label for="lobbyName">Lobby Name (optional)</label>
             <input type="text" id="lobbyName" placeholder="Friday Game Night" />
           </div>
+          <div class="field">
+            <label>Game Mode</label>
+            <div class="switcher" id="createModeSwitcher">
+              <button class="active" data-gamemode="tiktok" type="button">Who Liked It? (TikTok)</button>
+              <button data-gamemode="spotify" type="button">Who Liked the Song? (Spotify)</button>
+            </div>
+          </div>
+          <p class="footer-note-inline">The mode is set when the lobby is created and can't be changed later &mdash; it decides which of your pools (TikTok or Spotify) everyone's guessing from.</p>
           <p class="join-error" id="createError" style="display:none;"></p>
           <button class="btn" id="createBtn" type="submit">Create Lobby</button>
         </form>
@@ -121,8 +144,9 @@
       <div class="game-header">
         <div>
           <h2 class="panel-title" id="lobbyHeaderName">Lobby</h2>
-          <p class="panel-flavor">Personal video pools of everyone here feed the game.</p>
+          <p class="panel-flavor">Personal pools of everyone here feed the game.</p>
           <span class="lobby-code-badge" id="lobbyCodeBadge">CODE: —</span>
+          <span class="lobby-mode-badge" id="lobbyModeBadge"></span>
         </div>
         <div class="exit-note">In-game — leave or finish to return</div>
       </div>
