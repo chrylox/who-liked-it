@@ -468,6 +468,30 @@ photoInput.addEventListener("change", async () => {
 
 // --- Submit Video ---
 const TIKTOK_URL_PATTERN = /^https?:\/\/([a-z0-9-]+\.)?tiktok\.com\//i;
+// TikTok's native "Share > Copy Link" produces one of these short hosts, whose
+// URL doesn't contain a numeric video ID at all (e.g. vm.tiktok.com/ZGd9CtUac/)
+// — our embed regex can't extract an ID from that, so without resolving it
+// first the video silently falls back to a "Watch on TikTok" link instead of
+// playing inline. Resolving requires following the redirect server-side (a
+// resolve-tiktok-link Nhost Function) since that's opaque to browser JS
+// under CORS.
+const SHORT_LINK_HOSTS = new Set(["vm.tiktok.com", "vt.tiktok.com"]);
+async function resolveShortLinkIfNeeded(url) {
+  let hostname;
+  try {
+    hostname = new URL(url).hostname;
+  } catch (err) {
+    return url;
+  }
+  if (!SHORT_LINK_HOSTS.has(hostname)) return url;
+  try {
+    const { body } = await nhost.functions.post("/resolve-tiktok-link", { url });
+    return body.resolvedUrl || url;
+  } catch (err) {
+    return url; // best-effort — worst case, same fallback behavior as before this fix
+  }
+}
+
 let lastSubmittedPostId = null;
 let undoHideTimer = null;
 
@@ -487,9 +511,10 @@ submitForm.addEventListener("submit", async (e) => {
 
   fileBtn.disabled = true;
   try {
+    const resolvedUrl = await resolveShortLinkIfNeeded(url);
     const { body } = await nhost.graphql.request({
       query: `mutation($url: String!) { insert_posts_one(object: {video_url: $url}) { id } }`,
-      variables: { url },
+      variables: { url: resolvedUrl },
     });
     submitForm.reset();
     lastSubmittedPostId = body.data.insert_posts_one.id;
