@@ -48,6 +48,8 @@ graph LR
 
 *Green nodes are live in the deployed app today. See [`roles-use-cases-diagram.md`](./roles-use-cases-diagram.md) for the same diagram plus a written explanation of each role, and [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md) for the full build history, schema, and open items.*
 
+[![Unit Tests](https://github.com/chrylox/who-liked-it/actions/workflows/tests.yml/badge.svg)](https://github.com/chrylox/who-liked-it/actions/workflows/tests.yml)
+
 ## Testing
 
 Two complementary test suites: fast unit tests for pure logic, and slower real-browser end-to-end tests for actual user journeys against the real Nhost backend.
