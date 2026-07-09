@@ -577,13 +577,21 @@
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
+  #lobbyGame.active {
+    align-items: center; /* re-centers the video-stage once it's narrower than the screen */
+  }
   #lobbyGame.active .video-stage {
     flex: 1;
     width: 100%;
-    max-width: none;
+    /* On a phone (screen already ~9:16 or taller) this cap exceeds 100% and
+       does nothing — edge-to-edge stays edge-to-edge. On a wider screen
+       (tablet, desktop) it keeps the video-stage itself phone-shaped instead
+       of stretching wide and letting the vertical TikTok video pillarbox down
+       to a small box in the middle of a lot of empty space. */
+    max-width: calc(100vh * 9 / 16);
     max-height: none;
     aspect-ratio: auto;
-    margin: 0;
+    margin: 0 auto;
     border-radius: 0;
     box-shadow: none;
   }
