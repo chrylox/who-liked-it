@@ -177,7 +177,31 @@ async function refreshIsAdmin() {
   updateAdminTabVisibility();
 }
 
+// --- Email verification link lands back here with ?refreshToken=... (Nhost's
+// /v1/verify redirect) — exchange it so clicking the link signs you in directly,
+// instead of just unlocking sign-in and making you type your password again. ---
+async function completeEmailVerificationFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const refreshToken = params.get("refreshToken");
+  if (!refreshToken) return false;
+  // Strip it (and Nhost's accompanying `type` param) from the URL immediately
+  // so a reload/back-navigation can't replay it.
+  params.delete("refreshToken");
+  params.delete("type");
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
+  window.history.replaceState({}, "", cleanUrl);
+  try {
+    await nhost.auth.refreshToken({ refreshToken });
+    return true;
+  } catch (err) {
+    accessError.textContent = "That verification link is invalid or has expired. Please sign in instead.";
+    accessError.style.display = "block";
+    return false;
+  }
+}
+
 // --- Restore session on load ---
+await completeEmailVerificationFromUrl();
 applySession(nhost.getUserSession());
 if (currentSession) {
   refreshIsAdmin();
