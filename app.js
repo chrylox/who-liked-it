@@ -84,6 +84,7 @@ const videoLeaveBtn = document.getElementById("videoLeaveBtn");
 const roundTracker = document.getElementById("roundTracker");
 const videoEmbedIframe = document.getElementById("videoEmbedIframe");
 const videoFallbackLink = document.getElementById("videoFallbackLink");
+const videoRemovedNote = document.getElementById("videoRemovedNote");
 const waitingOverlay = document.getElementById("waitingOverlay");
 const waitingRows = document.getElementById("waitingRows");
 const stampCorrect = document.getElementById("stampCorrect");
@@ -782,6 +783,16 @@ function extractTikTokVideoId(url) {
 function showVideoForRound(round) {
   if (round.id === lastShownRoundId) return; // don't reload the embed on every poll tick
   lastShownRoundId = round.id;
+  if (!round.post) {
+    // An admin soft-deleted this round's video (moderation) — it disappears from
+    // the `user` role's view (see #33) even though the round itself still exists.
+    videoEmbedIframe.style.display = "none";
+    videoEmbedIframe.src = "";
+    videoFallbackLink.style.display = "none";
+    videoRemovedNote.style.display = "block";
+    return;
+  }
+  videoRemovedNote.style.display = "none";
   const id = extractTikTokVideoId(round.post.video_url);
   if (id) {
     videoEmbedIframe.src = `https://www.tiktok.com/embed/v2/${id}`;
@@ -932,7 +943,7 @@ async function loadAdminPanel() {
       lobbies(where: { is_open: { _eq: true } }) { id code name organizer_id }
       lobby_members { lobby_id user_id }
       users { id displayName avatarUrl email }
-      posts { id video_url submitted_by }
+      posts(where: { deleted_at: { _is_null: true } }) { id video_url submitted_by }
     }`);
     adminLobbies = body.data.lobbies;
     adminMembers = body.data.lobby_members;
@@ -1032,7 +1043,14 @@ adminRoster.addEventListener("click", async (e) => {
   if (deleteVideoBtn) {
     deleteVideoBtn.disabled = true;
     try {
-      await adminRequest(`mutation($id: uuid!) { delete_posts_by_pk(id: $id) { id } }`, { id: deleteVideoBtn.dataset.postId });
+      // Soft-delete, not a hard DELETE: a video already drawn into a game round
+      // can't be physically removed (game_rounds.post_id references it, ON
+      // DELETE NO ACTION, to protect finished games' history) — see #33. Setting
+      // deleted_at just hides it from everyone but Admin from here on.
+      await adminRequest(`mutation($id: uuid!, $deletedAt: timestamptz!) { update_posts_by_pk(pk_columns: {id: $id}, _set: {deleted_at: $deletedAt}) { id } }`, {
+        id: deleteVideoBtn.dataset.postId,
+        deletedAt: new Date().toISOString(),
+      });
       await loadAdminPanel();
     } catch (err) {
       adminError.textContent = errorMessageFrom(err);
