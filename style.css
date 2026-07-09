@@ -750,7 +750,11 @@
     pointer-events: none;
     z-index: 4;
   }
-  .video-stage.sheet-open::before { opacity: 1; }
+  /* pointer-events stays none while hidden so it never blocks the video/iframe
+     underneath — only captures taps (to close the sheet) once actually shown,
+     otherwise a tap "outside the sheet" would fall through to a real TikTok
+     iframe's own cross-origin content instead of reaching our click handler. */
+  .video-stage.sheet-open::before { opacity: 1; pointer-events: auto; }
 
   .guess-sheet {
     position: absolute;

@@ -89,7 +89,9 @@ const waitingOverlay = document.getElementById("waitingOverlay");
 const waitingRows = document.getElementById("waitingRows");
 const stampCorrect = document.getElementById("stampCorrect");
 const stampWrong = document.getElementById("stampWrong");
+const videoStage = document.getElementById("videoStage");
 const guessSheet = document.getElementById("guessSheet");
+const guessToggleBtn = document.getElementById("guessToggleBtn");
 const lineup = document.getElementById("lineup");
 const miniStandingsWrap = document.getElementById("miniStandingsWrap");
 const miniStandings = document.getElementById("miniStandings");
@@ -103,6 +105,26 @@ let currentLobby = null;
 let currentGameData = null;
 let lobbyPollTimer = null;
 let lastShownRoundId = null;
+let lastGuessableRoundId = null;
+
+// --- Guess sheet: hidden by default so the video isn't cluttered, opened via
+// the corner button (or by tapping the dimmed backdrop to close it again). ---
+function openGuessSheet() {
+  videoStage.classList.add("sheet-open");
+  guessSheet.classList.add("open");
+}
+function closeGuessSheet() {
+  videoStage.classList.remove("sheet-open");
+  guessSheet.classList.remove("open");
+}
+guessToggleBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (videoStage.classList.contains("sheet-open")) closeGuessSheet();
+  else openGuessSheet();
+});
+videoStage.addEventListener("click", (e) => {
+  if (videoStage.classList.contains("sheet-open") && !guessSheet.contains(e.target)) closeGuessSheet();
+});
 
 let currentSession = null;
 let isAdmin = false;
@@ -535,6 +557,7 @@ function enterLobby(lobbyId) {
   currentLobby = { id: lobbyId };
   lobbyError.style.display = "none";
   lastShownRoundId = null;
+  lastGuessableRoundId = null;
   document.body.classList.add("game-active");
   tabsRow.classList.add("hidden");
   showPanel("lobby");
@@ -549,6 +572,7 @@ function exitLobbyView() {
   currentLobby = null;
   currentGameData = null;
   lastShownRoundId = null;
+  lastGuessableRoundId = null;
   document.body.classList.remove("game-active");
   document.body.classList.remove("round-active");
   tabsRow.classList.remove("hidden");
@@ -768,6 +792,7 @@ startGameBtn.addEventListener("click", async () => {
       variables: { lobbyId: currentLobby.id },
     });
     lastShownRoundId = null;
+    lastGuessableRoundId = null;
     pollLobby();
   } catch (err) {
     lobbyError.textContent = errorMessageFrom(err);
@@ -840,24 +865,36 @@ function renderLiveRound(game, lob) {
 
   stampCorrect.classList.remove("show");
   stampWrong.classList.remove("show");
-  guessSheet.classList.remove("open");
   waitingOverlay.style.display = "none";
   miniStandingsWrap.style.display = "none";
 
   if (revealed) {
+    closeGuessSheet();
+    guessToggleBtn.style.display = "none";
     if (myGuess) {
       (myGuess.correct ? stampCorrect : stampWrong).classList.add("show");
     }
     miniStandingsWrap.style.display = "block";
     renderStandingsList(miniStandings, game.rounds.filter((r) => r.revealed_at));
   } else if (round.is_my_video) {
+    closeGuessSheet();
+    guessToggleBtn.style.display = "none";
     waitingOverlay.style.display = "block";
     waitingRows.innerHTML = `<div class="waiting-row">This one's yours — sit back while the group guesses.</div>`;
   } else if (myGuess) {
+    closeGuessSheet();
+    guessToggleBtn.style.display = "none";
     waitingOverlay.style.display = "block";
     waitingRows.innerHTML = `<div class="waiting-row">Guess locked in — waiting on the rest of the group&hellip;</div>`;
   } else {
-    guessSheet.classList.add("open");
+    // Only reset the sheet to closed the first time THIS round becomes
+    // guessable — renderLiveRound runs on every 2s poll, and re-closing it
+    // every tick would yank the sheet shut while someone's mid-decision.
+    if (round.id !== lastGuessableRoundId) {
+      lastGuessableRoundId = round.id;
+      closeGuessSheet();
+      guessToggleBtn.style.display = "flex";
+    }
     renderGuessLineup(lob, round);
   }
 }
@@ -884,6 +921,9 @@ async function submitGuess(roundId, guessedUserId) {
       }`,
       variables: { roundId, guessedUserId },
     });
+    // Instant feedback — don't wait for the next poll to hide the sheet.
+    closeGuessSheet();
+    guessToggleBtn.style.display = "none";
     pollLobby();
   } catch (err) {
     lobbyError.textContent = errorMessageFrom(err);
@@ -932,6 +972,7 @@ playAgainBtn.addEventListener("click", async () => {
       variables: { lobbyId: currentLobby.id },
     });
     lastShownRoundId = null;
+    lastGuessableRoundId = null;
     pollLobby();
   } catch (err) {
     lobbyError.textContent = errorMessageFrom(err);
