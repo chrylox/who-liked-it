@@ -42,8 +42,13 @@ Lobbies are temporary — they only exist while they have ≥1 member.
 ## Nhost project (created 2026-07-08)
 - Organization: `chrylox`. App name: "who liked it". Region: `eu-central-1`. Subdomain: `yywxtheekjcruhephgqw`.
 - Live service URLs: GraphQL `https://yywxtheekjcruhephgqw.graphql.eu-central-1.nhost.run/v1`, Auth `https://yywxtheekjcruhephgqw.auth.eu-central-1.nhost.run/v1`, Storage `https://yywxtheekjcruhephgqw.storage.eu-central-1.nhost.run/v1`. All three confirmed live (200 responses).
-- Database is currently empty — no custom tables/permissions yet, just Nhost's defaults. The schema below hasn't been created there yet.
+- The database is fully built (see the schema section below) — this line originally said "currently empty" back when the project was first created and was never updated; it's not.
 - The trainee's Personal Access Token is stored in `~/.claude/tokens.env` as `NHOST_PAT` (account-level; exchange it for a short-lived access token via the Auth service's `/v1/signin/pat` endpoint before calling the control-plane GraphQL API at `https://otsispdzcwxyqzbfntmj.graphql.eu-central-1.nhost.run/v1` to manage the project itself — separate from the project's own GraphQL API above).
+
+**Credentials are deliberately NOT in this repo** (`~/.claude/tokens.env` is a machine-local file, gitignored, never committed — committing secrets to a public repo would be a real security mistake). If picking this project up from a different machine or a different AI tool, these need to be regenerated/refetched, not copied from here:
+- `NHOST_PAT` — generate a new Personal Access Token from the Nhost dashboard (Account Settings → Personal Access Tokens).
+- `HASURA_ADMIN_SECRET` — visible in the Nhost dashboard under this project's Settings → Environment Variables, or refetch via the control-plane GraphQL query already described above (`config(appID, resolve: true) { hasura { adminSecret } }`).
+- `GITHUB_TOKEN` — generate a new fine-grained personal access token scoped to the `chrylox/who-liked-it` repo (Settings → Developer settings → Personal access tokens on GitHub), needed for pushing commits/managing issues without the trainee doing it by hand each time.
 
 ## Database schema (Nhost/Postgres via Hasura, 7 tables)
 - **`profiles`** ✅ **built 2026-07-08** — `id` (PK, → `auth.users.id`, cascade delete), `is_admin` (bool, default false). No `display_name` here — Nhost's own `auth.users` already has `display_name`/`avatar_url`, so we didn't duplicate it; a Hasura select permission exposes just those two columns of `auth.users` to any logged-in player instead. A Postgres trigger (`on_auth_user_created`) auto-creates the matching `profiles` row on every signup, so app code never has to remember to.
