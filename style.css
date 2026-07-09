@@ -589,16 +589,25 @@
   #lobbyGame.active #miniStandingsWrap .standing-name,
   #lobbyGame.active #miniStandingsWrap .points { color: #fff; }
 
+  /* Stacked below the round-tracker pill (both centered), not beside it —
+     anchoring this top-right while the tracker sits centered at the same
+     top:14px row let their text visibly overlap whenever both showed at
+     once (organizer/admin only, see issue #42). max-width+wrap is a
+     defensive fallback for narrow viewports, not the primary fix. */
   .force-reveal-btn {
     position: absolute;
-    top: 14px;
-    right: 14px;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 6;
     font-size: 11px;
     padding: 6px 10px;
     background: rgba(0,0,0,0.55);
     color: #fff;
     border: 1px solid rgba(255,255,255,0.3);
+    max-width: calc(100% - 28px);
+    white-space: normal;
+    text-align: center;
   }
 
   .video-leave-btn {
