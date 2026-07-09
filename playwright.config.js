@@ -1,6 +1,6 @@
 // Playwright config for who-liked-it's end-to-end tests. See tests/README.md
 // for what these tests need (env vars, a running local server) and how to run them.
-module.exports = {
+export default {
   testDir: "./tests",
   // Generous on purpose: these tests make real network round-trips against
   // the real Nhost backend at every step (2 sign-ins, 2 video submits,

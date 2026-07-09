@@ -5,7 +5,7 @@
 // trip that limit fast if every test signed up for real. The one exception is
 // the registration test itself, which exists specifically to exercise the
 // real signup + email-verification-link flow.
-const bcrypt = require("bcryptjs");
+import bcrypt from "bcryptjs";
 
 const SUBDOMAIN = process.env.NHOST_SUBDOMAIN || "yywxtheekjcruhephgqw";
 const REGION = process.env.NHOST_REGION || "eu-central-1";
@@ -94,7 +94,7 @@ async function resolveVerificationRedirect(ticket, redirectTo) {
   return location;
 }
 
-module.exports = {
+export {
   TEST_PASSWORD,
   AUTH_URL,
   runSql,

@@ -47,3 +47,41 @@ graph LR
 ```
 
 *Green nodes are live in the deployed app today. See [`roles-use-cases-diagram.md`](./roles-use-cases-diagram.md) for the same diagram plus a written explanation of each role, and [`PROJECT_HANDOFF.md`](./PROJECT_HANDOFF.md) for the full build history, schema, and open items.*
+
+## Testing
+
+Two complementary test suites: fast unit tests for pure logic, and slower real-browser end-to-end tests for actual user journeys against the real Nhost backend.
+
+### Unit tests (Jest)
+
+**171 unit tests** covering pure functions extracted from `app.js` and `functions/resolve-tiktok-link.js` — error handling, URL/TikTok-link parsing, game-state/standings logic. No network calls, no backend needed.
+
+```bash
+npm install
+npm test                 # run all
+npm run test:watch       # re-run on file changes
+npm run test:coverage    # with coverage report
+npx jest __tests__/utils.test.js                    # one file
+npx jest --testNamePattern="extractTikTokVideoId"   # matching tests only
+```
+
+| File | Tests | Description |
+|------|-------|--------------|
+| `__tests__/utils.test.js` | 56 | Error handling, URL parsing, game state utilities |
+| `__tests__/tiktok.test.js` | 41 | TikTok URL validation and video ID extraction |
+| `__tests__/gameLogic.test.js` | 52 | Round management, standings, lobby state |
+| `__tests__/resolve-tiktok-link.test.js` | 22 | Link resolution function logic |
+
+See [`__tests__/README.md`](./__tests__/README.md) for details.
+
+### End-to-end tests (Playwright)
+
+Real browser tests against the real Nhost backend — registering (including the email-verification-link auto-signin flow), playing a full two-player game through to final standings, and the Admin panel's destructive actions (moderate a video, close a lobby, delete an account).
+
+```bash
+npx playwright install chromium
+npx serve . -p 8080                                          # in one terminal
+HASURA_ADMIN_SECRET='...' npm run test:e2e                   # in another
+```
+
+See [`tests/README.md`](./tests/README.md) for setup details, why test accounts are created via direct DB insert rather than the real signup form, and what to expect if you hit Nhost's rate limiter mid-run.

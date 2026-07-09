@@ -1,12 +1,28 @@
 {
   "name": "who-liked-it",
-  "private": true,
   "version": "1.0.0",
-  "description": "Party game: guess who liked which TikTok video. Plain HTML/CSS/JS frontend, Nhost backend.",
+  "description": "A party game for friend groups - guess who liked which TikTok video",
+  "private": true,
+  "type": "module",
+  "keywords": [
+    "game",
+    "tiktok",
+    "party",
+    "multiplayer"
+  ],
+  "author": "chrylox",
+  "license": "MIT",
   "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
     "@playwright/test": "^1.59.1",
     "bcryptjs": "^2.4.3"
   }

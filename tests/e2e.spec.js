@@ -13,8 +13,8 @@
 // PROJECT_HANDOFF.md) — every selector below is scoped to the specific
 // row/lobby a test created, never a bare global selector, since the real
 // admin roster/lobby list can and does contain other people's real data.
-const { test, expect } = require("@playwright/test");
-const {
+import { test, expect } from "@playwright/test";
+import {
   TEST_PASSWORD,
   createTestUser,
   makeAdmin,
@@ -22,7 +22,7 @@ const {
   cleanupOrphanedTestData,
   getVerificationTicket,
   resolveVerificationRedirect,
-} = require("./helpers");
+} from "./helpers.js";
 
 // Two of TikTok's own official example videos (from their developer docs) —
 // real, stable, existing videos, not placeholder test URLs.
