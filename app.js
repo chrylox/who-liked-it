@@ -81,6 +81,7 @@ const waitingFooterNote = document.getElementById("waitingFooterNote");
 
 const lobbyGame = document.getElementById("lobbyGame");
 const videoLeaveBtn = document.getElementById("videoLeaveBtn");
+const forceRevealBtn = document.getElementById("forceRevealBtn");
 const roundTracker = document.getElementById("roundTracker");
 const videoEmbedIframe = document.getElementById("videoEmbedIframe");
 const videoFallbackLink = document.getElementById("videoFallbackLink");
@@ -832,6 +833,24 @@ videoLeaveBtn.addEventListener("click", () => {
   if (confirm("Leave this lobby? This forfeits the current game.")) leaveLobby();
 });
 
+forceRevealBtn.addEventListener("click", async () => {
+  if (!confirm("Reveal this round now? Anyone who hasn't guessed yet will be treated as not guessing.")) return;
+  lobbyError.style.display = "none";
+  forceRevealBtn.disabled = true;
+  try {
+    await nhost.graphql.request({
+      query: `mutation($id: uuid!) { force_reveal_round(args: {round_id: $id}) { id } }`,
+      variables: { id: forceRevealBtn.dataset.roundId },
+    });
+    pollLobby();
+  } catch (err) {
+    lobbyError.textContent = errorMessageFrom(err);
+    lobbyError.style.display = "block";
+  } finally {
+    forceRevealBtn.disabled = false;
+  }
+});
+
 // --- Live round ---
 const REVEAL_HOLD_MS = 4000;
 
@@ -893,6 +912,17 @@ function renderLiveRound(game, lob) {
 
   const myGuess = round.guesses.find((g) => g.guesser_id === currentSession.user.id);
   const revealed = !!round.revealed_at;
+  const amOrganizer = lob.organizer_id === currentSession.user.id;
+
+  // Escape hatch for #38: if someone closes their tab mid-round instead of
+  // leaving, nothing ever re-evaluates that round (reveal is purely driven by
+  // a fresh guesses INSERT) — with exactly one other eligible guesser also
+  // gone, nothing could ever unstick it. Visible independent of which of the
+  // three below branches is active, since the organizer/admin viewing this
+  // might be in any of them (or have already guessed) while someone ELSE is
+  // the one who's stuck.
+  forceRevealBtn.style.display = !revealed && (amOrganizer || isAdmin) ? "inline-block" : "none";
+  forceRevealBtn.dataset.roundId = round.id;
 
   stampCorrect.classList.remove("show");
   stampWrong.classList.remove("show");
@@ -1031,6 +1061,7 @@ let adminMembers = [];
 let adminUsers = [];
 let adminPosts = [];
 let adminExpandedUserId = null;
+let adminExpandedLobbyId = null;
 
 async function loadAdminPanel() {
   adminError.style.display = "none";
@@ -1061,29 +1092,79 @@ function renderAdminLobbies() {
   }
   adminLobbyList.innerHTML = adminLobbies
     .map((lob) => {
-      const memberCount = adminMembers.filter((m) => m.lobby_id === lob.id).length;
+      const members = adminMembers.filter((m) => m.lobby_id === lob.id);
       const name = lob.name || "Unnamed Lobby";
-      return `<div class="admin-row">
-        <div>${name}<span class="admin-meta">CODE: ${lob.code} &middot; ${memberCount} member${memberCount === 1 ? "" : "s"}</span></div>
-        <button class="btn secondary small admin-close-lobby-btn" data-lobby-id="${lob.id}">Close</button>
+      const expanded = adminExpandedLobbyId === lob.id;
+      // Fix for #39: an AFK Organizer stranded in the waiting room (tab closed
+      // without Leave) never transfers the role — only a real lobby_members
+      // DELETE does that. This lets Admin hand it to any current member
+      // directly, without the disproportionate "delete their whole account"
+      // workaround that was the only lever before.
+      const memberRows = members
+        .map((m) => {
+          const user = adminUsers.find((u) => u.id === m.user_id);
+          const name = user ? user.displayName : "(unknown)";
+          const isOrganizer = m.user_id === lob.organizer_id;
+          return `<div class="admin-row">
+            <div>${name}${isOrganizer ? ' <span class="admin-meta">Organizer</span>' : ""}</div>
+            ${isOrganizer ? "" : `<button class="btn secondary small admin-make-organizer-btn" data-lobby-id="${lob.id}" data-user-id="${m.user_id}">Make Organizer</button>`}
+          </div>`;
+        })
+        .join("");
+      return `<div class="admin-person${expanded ? " expanded" : ""}" data-lobby-id="${lob.id}">
+        <div class="admin-row admin-row-clickable">
+          <div>${name}<span class="admin-meta">CODE: ${lob.code} &middot; ${members.length} member${members.length === 1 ? "" : "s"}</span></div>
+          <div class="admin-row-actions">
+            <button class="btn secondary small admin-expand-btn">Manage ${expanded ? "&#9652;" : "&#9662;"}</button>
+            <button class="btn secondary small admin-close-lobby-btn" data-lobby-id="${lob.id}">Close</button>
+          </div>
+        </div>
+        <div class="admin-evidence-list" style="display:${expanded ? "block" : "none"};">${memberRows || `<div class="admin-evidence-empty">No members.</div>`}</div>
       </div>`;
     })
     .join("");
 }
 
 adminLobbyList.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".admin-close-lobby-btn");
-  if (!btn) return;
-  btn.disabled = true;
-  try {
-    await adminRequest(`mutation($lobbyId: uuid!) { delete_lobby_members(where: { lobby_id: { _eq: $lobbyId } }) { affected_rows } }`, {
-      lobbyId: btn.dataset.lobbyId,
-    });
-    await loadAdminPanel();
-  } catch (err) {
-    adminError.textContent = errorMessageFrom(err);
-    adminError.style.display = "block";
-    btn.disabled = false;
+  const closeBtn = e.target.closest(".admin-close-lobby-btn");
+  const makeOrgBtn = e.target.closest(".admin-make-organizer-btn");
+  const lobbyPerson = e.target.closest(".admin-person");
+
+  if (closeBtn) {
+    closeBtn.disabled = true;
+    try {
+      await adminRequest(`mutation($lobbyId: uuid!) { delete_lobby_members(where: { lobby_id: { _eq: $lobbyId } }) { affected_rows } }`, {
+        lobbyId: closeBtn.dataset.lobbyId,
+      });
+      await loadAdminPanel();
+    } catch (err) {
+      adminError.textContent = errorMessageFrom(err);
+      adminError.style.display = "block";
+      closeBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (makeOrgBtn) {
+    makeOrgBtn.disabled = true;
+    try {
+      await adminRequest(
+        `mutation($lobbyId: uuid!, $newOrg: uuid!) { admin_reassign_organizer(args: {lobby_id: $lobbyId, new_organizer_id: $newOrg}) { id } }`,
+        { lobbyId: makeOrgBtn.dataset.lobbyId, newOrg: makeOrgBtn.dataset.userId }
+      );
+      await loadAdminPanel();
+    } catch (err) {
+      adminError.textContent = errorMessageFrom(err);
+      adminError.style.display = "block";
+      makeOrgBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (lobbyPerson) {
+    const lobbyId = lobbyPerson.dataset.lobbyId;
+    adminExpandedLobbyId = adminExpandedLobbyId === lobbyId ? null : lobbyId;
+    renderAdminLobbies();
   }
 });
 
@@ -1188,5 +1269,6 @@ adminRoster.addEventListener("click", async (e) => {
 
 adminTab.addEventListener("click", () => {
   adminExpandedUserId = null;
+  adminExpandedLobbyId = null;
   loadAdminPanel();
 });

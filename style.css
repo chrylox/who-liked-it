@@ -613,6 +613,18 @@
   #lobbyGame.active #miniStandingsWrap .standing-name,
   #lobbyGame.active #miniStandingsWrap .points { color: #fff; }
 
+  .force-reveal-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 6;
+    font-size: 11px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+
   .video-leave-btn {
     position: absolute;
     top: 14px;
