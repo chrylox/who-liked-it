@@ -248,7 +248,19 @@ modeButtons.forEach((btn) => {
 // GraphQL response, not a plain {message}.
 function errorMessageFrom(err) {
   if (err && err.body && Array.isArray(err.body.errors) && err.body.errors[0]) {
-    return err.body.errors[0].message;
+    const gqlError = err.body.errors[0];
+    // A RAISE EXCEPTION inside one of our own Postgres functions (start_game's
+    // "need at least 2 players", the guess triggers, etc.) is a message we
+    // deliberately wrote for the end user — but Hasura's top-level `message`
+    // for these is always the generic "database query error"; the real text
+    // only shows up nested in extensions.internal.error.message. Postgres
+    // error code P0001 specifically means "a RAISE EXCEPTION was hit", as
+    // opposed to e.g. a raw unique-constraint violation, which stays generic
+    // on purpose (isConstraintViolation/isPermissionCheckFailure give those
+    // their own friendlier text elsewhere rather than showing raw SQL detail).
+    const raised = gqlError.extensions && gqlError.extensions.internal && gqlError.extensions.internal.error;
+    if (raised && raised.status_code === "P0001" && raised.message) return raised.message;
+    return gqlError.message;
   }
   return (err && err.body && err.body.message) || (err && err.message) || "Something went wrong. Please try again.";
 }
@@ -887,13 +899,16 @@ function showVideoForRound(round) {
   videoRemovedNote.style.display = "none";
   const id = extractTikTokVideoId(round.post.video_url);
   if (id) {
-    // /player/v1/ is TikTok's dedicated Embed Player — per TikTok's own docs
-    // (developers.tiktok.com/doc/embed-player) its only parameters are
-    // playback controls (progress_bar, volume, fullscreen, etc.); it has no
-    // like/comment/share/follow chrome at all (that's /embed/v2/'s full
-    // social-card widget only). music_info=0&description=0 hides the two
-    // caption/music-info lines it does show by default.
-    videoEmbedIframe.src = `https://www.tiktok.com/player/v1/${id}?music_info=0&description=0`;
+    // /player/v1/ is TikTok's dedicated Embed Player. music_info=0&description=0
+    // hides its caption/music-info lines. autoplay=1 starts the video without
+    // a tap; browsers block unmuted autoplay without a user gesture, so
+    // muted=1 is required for autoplay to actually take effect (confirmed
+    // this pairing is necessary — autoplay alone silently no-ops). Note: in
+    // practice this player still overlays its own like/comment/share icons
+    // directly on the video regardless of these params (seen live on-device,
+    // contradicting TikTok's own docs) — there's no documented parameter for
+    // those, and they're cross-origin content we can't restyle from our CSS.
+    videoEmbedIframe.src = `https://www.tiktok.com/player/v1/${id}?music_info=0&description=0&autoplay=1&muted=1`;
     videoEmbedIframe.style.display = "block";
     videoFallbackLink.style.display = "none";
   } else {

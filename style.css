@@ -551,7 +551,6 @@
     align-items: center; /* re-centers the video-stage once it's narrower than the screen */
   }
   #lobbyGame.active .video-stage {
-    flex: 1;
     width: 100%;
     /* On a phone (screen already ~9:16 or taller) this cap exceeds 100% and
        does nothing — edge-to-edge stays edge-to-edge. On a wider screen
@@ -559,9 +558,16 @@
        of stretching wide and letting the vertical TikTok video pillarbox down
        to a small box in the middle of a lot of empty space. */
     max-width: calc(100vh * 9 / 16);
-    max-height: none;
-    aspect-ratio: auto;
-    margin: 0 auto;
+    /* Locked to the video's real 9:16 shape (not stretched to fill all
+       available height) — a phone screen's true aspect ratio is rarely
+       exactly 9:16, and any leftover height used to hand TikTok's iframe
+       extra room, which it filled with its own caption/footer card instead
+       of leaving it blank. Margin:auto centers the box in that leftover
+       space (still within a flex column) using our own solid black
+       background, not TikTok's, for anything above/below. */
+    max-height: 100%;
+    aspect-ratio: 9 / 16;
+    margin: auto;
     border-radius: 0;
     box-shadow: none;
   }
