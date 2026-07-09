@@ -1,0 +1,13 @@
+{
+  "name": "who-liked-it",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Party game: guess who liked which TikTok video. Plain HTML/CSS/JS frontend, Nhost backend.",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "bcryptjs": "^2.4.3"
+  }
+}
