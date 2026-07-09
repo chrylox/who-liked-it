@@ -58,19 +58,30 @@ const submitError = document.getElementById("submitError");
 const submitSuccess = document.getElementById("submitSuccess");
 const undoSubmitBtn = document.getElementById("undoSubmitBtn");
 const filedUnderName = document.getElementById("filedUnderName");
+const filedUnderNameSpotify = document.getElementById("filedUnderNameSpotify");
 
-const lobbyModeButtons = document.querySelectorAll("#home .switcher button");
+const poolModeButtons = document.querySelectorAll("#poolModeSwitcher button");
+const spotifyConnectBtn = document.getElementById("spotifyConnectBtn");
+const spotifyError = document.getElementById("spotifyError");
+const spotifySuccess = document.getElementById("spotifySuccess");
+
+// Direct child, not a descendant selector — #createLobbyForm nests its own
+// TikTok/Spotify game-mode .switcher inside #home too, which must NOT be
+// caught by this Join/Create switcher's click handler.
+const lobbyModeButtons = document.querySelectorAll("#home > .switcher button");
 const joinLobbyForm = document.getElementById("joinLobbyForm");
 const joinCodeInput = document.getElementById("joinCode");
 const joinBtn = document.getElementById("joinBtn");
 const joinError = document.getElementById("joinError");
 const createLobbyForm = document.getElementById("createLobbyForm");
 const lobbyNameInput = document.getElementById("lobbyName");
+const createModeButtons = document.querySelectorAll("#createModeSwitcher button");
 const createBtn = document.getElementById("createBtn");
 const createError = document.getElementById("createError");
 
 const lobbyHeaderName = document.getElementById("lobbyHeaderName");
 const lobbyCodeBadge = document.getElementById("lobbyCodeBadge");
+const lobbyModeBadge = document.getElementById("lobbyModeBadge");
 const lobbyError = document.getElementById("lobbyError");
 const lobbyWaiting = document.getElementById("lobbyWaiting");
 const waitingMemberList = document.getElementById("waitingMemberList");
@@ -173,6 +184,7 @@ function applySession(session) {
     profileCornerInitial.textContent = initial;
     profilePicInitial.textContent = initial;
     filedUnderName.textContent = user.displayName;
+    filedUnderNameSpotify.textContent = user.displayName;
     applyAvatar(user.avatarUrl);
   } else {
     sessionStatus.textContent = "Not signed in";
@@ -229,6 +241,7 @@ if (currentSession) {
   refreshIsAdmin();
   goToTab("submit");
 }
+await completeSpotifyAuthFromUrl();
 
 // --- Sign in / Register switcher ---
 modeButtons.forEach((btn) => {
@@ -564,6 +577,159 @@ undoSubmitBtn.addEventListener("click", async () => {
   }
 });
 
+// --- Add to Your Pool: TikTok / Spotify switcher ---
+poolModeButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    poolModeButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const isSpotify = btn.dataset.poolmode === "spotify";
+    document.querySelector("[data-pool-tiktok]").style.display = isSpotify ? "none" : "block";
+    document.querySelector("[data-pool-spotify]").style.display = isSpotify ? "block" : "none";
+  });
+});
+
+// --- Spotify: Connect + Sync Liked Songs (Authorization Code with PKCE — the
+// whole flow runs client-side, no secret needed, matching the rest of this
+// project's "no backend server" constraint). Spotify tokens are never
+// persisted anywhere (not localStorage, not the DB) — a sync just uses the
+// access token in memory for the duration of the fetch, then discards it;
+// syncing again later just means reconnecting, which Spotify makes near-
+// instant once a user has already approved this app once. ---
+const SPOTIFY_CLIENT_ID = "REPLACE_WITH_REAL_SPOTIFY_CLIENT_ID";
+const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
+const SPOTIFY_SCOPE = "user-library-read";
+// Soft cap, not a hard platform limit — keeps a single sync fast and bounded
+// for someone with a huge library. Surfaced in the UI copy, not silent.
+const SPOTIFY_SYNC_CAP = 500;
+
+function base64UrlEncode(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function generateSpotifyCodeVerifier() {
+  const bytes = new Uint8Array(64);
+  crypto.getRandomValues(bytes);
+  return base64UrlEncode(bytes);
+}
+
+async function generateSpotifyCodeChallenge(verifier) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return base64UrlEncode(new Uint8Array(digest));
+}
+
+spotifyConnectBtn.addEventListener("click", async () => {
+  const verifier = generateSpotifyCodeVerifier();
+  sessionStorage.setItem("spotify_code_verifier", verifier);
+  const challenge = await generateSpotifyCodeChallenge(verifier);
+  const params = new URLSearchParams({
+    client_id: SPOTIFY_CLIENT_ID,
+    response_type: "code",
+    redirect_uri: SPOTIFY_REDIRECT_URI,
+    scope: SPOTIFY_SCOPE,
+    code_challenge_method: "S256",
+    code_challenge: challenge,
+  });
+  window.location.href = `https://accounts.spotify.com/authorize?${params}`;
+});
+
+async function exchangeSpotifyCode(code, verifier) {
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: SPOTIFY_CLIENT_ID,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: SPOTIFY_REDIRECT_URI,
+      code_verifier: verifier,
+    }),
+  });
+  if (!res.ok) throw new Error("Spotify rejected that connection attempt. Please try again.");
+  return res.json();
+}
+
+async function fetchSpotifyLikedSongs(accessToken) {
+  const tracks = [];
+  let url = "https://api.spotify.com/v1/me/tracks?limit=50";
+  while (url && tracks.length < SPOTIFY_SYNC_CAP) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) throw new Error("Couldn't read your Liked Songs from Spotify.");
+    const page = await res.json();
+    for (const item of page.items) {
+      const t = item.track;
+      if (!t) continue; // a track can be removed/region-locked after being liked
+      tracks.push({
+        track_id: t.id,
+        track_name: t.name,
+        artist_name: t.artists.map((a) => a.name).join(", "),
+        album_art_url: (t.album.images[0] && t.album.images[0].url) || null,
+      });
+    }
+    url = page.next;
+  }
+  return tracks;
+}
+
+async function syncSpotifyLikedSongs(code, verifier) {
+  spotifyError.style.display = "none";
+  spotifySuccess.style.display = "none";
+  spotifyConnectBtn.disabled = true;
+  try {
+    spotifyConnectBtn.textContent = "Connecting to Spotify…";
+    const tokenData = await exchangeSpotifyCode(code, verifier);
+    spotifyConnectBtn.textContent = "Reading your Liked Songs…";
+    const tracks = await fetchSpotifyLikedSongs(tokenData.access_token);
+    if (!tracks.length) {
+      spotifySuccess.textContent = "Connected, but no Liked Songs were found on your Spotify account.";
+      spotifySuccess.style.display = "block";
+      return;
+    }
+    spotifyConnectBtn.textContent = "Saving to your pool…";
+    const { body } = await nhost.graphql.request({
+      query: `mutation($tracks: jsonb!) { sync_liked_songs(args: {tracks: $tracks}) { inserted_count } }`,
+      variables: { tracks },
+    });
+    const added = body.data.sync_liked_songs[0].inserted_count;
+    const already = tracks.length - added;
+    spotifySuccess.textContent =
+      `Synced! Added ${added} new song${added === 1 ? "" : "s"}` + (already ? ` (${already} were already in your pool).` : ".");
+    spotifySuccess.style.display = "block";
+  } catch (err) {
+    spotifyError.textContent = errorMessageFrom(err);
+    spotifyError.style.display = "block";
+  } finally {
+    spotifyConnectBtn.disabled = false;
+    spotifyConnectBtn.textContent = "Connect Spotify & Sync Liked Songs";
+  }
+}
+
+// Spotify redirects back here with ?code=...&state=... (or ?error=...) in the
+// URL — same "strip immediately, then act" pattern as the email-verification
+// link handler above, so a reload/back-navigation can't replay a used code.
+async function completeSpotifyAuthFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const error = params.get("error");
+  if (!code && !error) return;
+  const verifier = sessionStorage.getItem("spotify_code_verifier");
+  sessionStorage.removeItem("spotify_code_verifier");
+  params.delete("code");
+  params.delete("state");
+  params.delete("error");
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
+  window.history.replaceState({}, "", cleanUrl);
+
+  if (!currentSession) return; // can't sync while signed out; nothing to recover here
+  goToTab("submit");
+  document.querySelector('#poolModeSwitcher button[data-poolmode="spotify"]').click();
+  if (error || !code || !verifier) {
+    spotifyError.textContent = "Spotify connection was cancelled or expired. Please try again.";
+    spotifyError.style.display = "block";
+    return;
+  }
+  await syncSpotifyLikedSongs(code, verifier);
+}
+
 // --- Profile dropdown open/close ---
 profileCornerBtn.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -585,6 +751,19 @@ lobbyModeButtons.forEach((btn) => {
     document.querySelector("[data-lobby-create]").style.display = isCreate ? "block" : "none";
   });
 });
+
+// --- Create Lobby: TikTok / Spotify game-mode picker (set once at creation,
+// never changed after — see createLobbyForm below) ---
+let selectedGameMode = "tiktok";
+createModeButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    createModeButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedGameMode = btn.dataset.gamemode;
+  });
+});
+
+const GAME_MODE_LABELS = { tiktok: "🎬 Who Liked It? (TikTok)", spotify: "🎵 Who Liked the Song? (Spotify)" };
 
 function showPanel(id) {
   panels.forEach((p) => p.classList.toggle("active", p.id === id));
@@ -641,7 +820,7 @@ joinLobbyForm.addEventListener("submit", async (e) => {
   joinBtn.disabled = true;
   try {
     const { body } = await nhost.graphql.request({
-      query: `query($code: String!) { find_lobby_by_code(args: {code: $code}) { id name is_open } }`,
+      query: `query($code: String!) { find_lobby_by_code(args: {code: $code}) { id name is_open mode } }`,
       variables: { code },
     });
     const found = body.data.find_lobby_by_code[0];
@@ -681,10 +860,13 @@ createLobbyForm.addEventListener("submit", async (e) => {
   createBtn.disabled = true;
   try {
     const { body } = await nhost.graphql.request({
-      query: `mutation($name: String!) { insert_lobbies_one(object: {name: $name}) { id } }`,
-      variables: { name },
+      query: `mutation($name: String!, $mode: String!) { insert_lobbies_one(object: {name: $name, mode: $mode}) { id } }`,
+      variables: { name, mode: selectedGameMode },
     });
     createLobbyForm.reset();
+    createModeButtons.forEach((b) => b.classList.remove("active"));
+    document.querySelector('#createModeSwitcher button[data-gamemode="tiktok"]').classList.add("active");
+    selectedGameMode = "tiktok";
     enterLobby(body.data.insert_lobbies_one.id);
   } catch (err) {
     createError.textContent = errorMessageFrom(err);
@@ -701,14 +883,14 @@ async function pollLobby() {
     const { body } = await nhost.graphql.request({
       query: `query($id: uuid!) {
         lobbies_by_pk(id: $id) {
-          id code name organizer_id is_open
+          id code name mode organizer_id is_open
           members(order_by: {joined_at: asc}) { user_id member { displayName } }
         }
         games(where: {lobby_id: {_eq: $id}}, order_by: {started_at: desc}, limit: 1) {
           id round_count finalized_at
           rounds(order_by: {round_number: asc}) {
             id round_number revealed_at is_my_video
-            post { video_url }
+            post { content_type video_url track_id track_name artist_name album_art_url }
             guesses {
               guesser_id guessed_user_id correct
               guesser_account { displayName }
@@ -747,6 +929,7 @@ function renderLobby(data) {
   currentLobby = lob;
   lobbyHeaderName.textContent = lob.name;
   lobbyCodeBadge.textContent = "CODE: " + lob.code;
+  lobbyModeBadge.textContent = GAME_MODE_LABELS[lob.mode] || lob.mode;
 
   const game = data.games[0] || null;
   currentGameData = game;
@@ -799,8 +982,9 @@ function renderWaitingRoom(lob, amOrganizer) {
   });
 
   startGameBtn.style.display = amOrganizer ? "inline-block" : "none";
+  const poolNoun = lob.mode === "spotify" ? "songs" : "videos";
   waitingFooterNote.textContent = amOrganizer
-    ? "As Organizer, you decide when the game begins — everyone else is waiting on you. A game runs up to 8 rounds, depending on how many videos are in the pool."
+    ? `As Organizer, you decide when the game begins — everyone else is waiting on you. A game runs up to 8 rounds, depending on how many ${poolNoun} are in the pool.`
     : "Waiting for the Organizer to start the game.";
 }
 
@@ -897,6 +1081,22 @@ function showVideoForRound(round) {
     return;
   }
   videoRemovedNote.style.display = "none";
+
+  if (round.post.content_type === "spotify") {
+    // Spotify's own track embed — unlike TikTok, no OAuth/login is needed to
+    // view it, so every player (regardless of whether THEY connected Spotify)
+    // can see it. No caption/submitter info is shown, same "hidden until
+    // reveal" guarantee as TikTok's embed player.
+    videoStage.classList.add("spotify-mode");
+    videoEmbedIframe.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+    videoEmbedIframe.src = `https://open.spotify.com/embed/track/${round.post.track_id}`;
+    videoEmbedIframe.style.display = "block";
+    videoFallbackLink.style.display = "none";
+    return;
+  }
+
+  videoStage.classList.remove("spotify-mode");
+  videoEmbedIframe.allow = "encrypted-media;";
   const id = extractTikTokVideoId(round.post.video_url);
   if (id) {
     // /player/v1/ is TikTok's dedicated Embed Player. music_info=0&description=0
@@ -1084,7 +1284,7 @@ async function loadAdminPanel() {
       lobbies(where: { is_open: { _eq: true } }) { id code name organizer_id }
       lobby_members { lobby_id user_id }
       users { id displayName avatarUrl email }
-      posts(where: { deleted_at: { _is_null: true } }) { id video_url submitted_by }
+      posts(where: { deleted_at: { _is_null: true } }) { id content_type video_url track_name artist_name submitted_by }
     }`);
     adminLobbies = body.data.lobbies;
     adminMembers = body.data.lobby_members;
@@ -1204,15 +1404,15 @@ function renderAdminRoster() {
         ? posts
             .map(
               (p) => `<div class="admin-row">
-                <div>${p.video_url}<span class="admin-meta">Submitted by ${u.displayName}</span></div>
+                <div>${p.content_type === "spotify" ? `${p.track_name} &mdash; ${p.artist_name}` : p.video_url}<span class="admin-meta">Submitted by ${u.displayName}</span></div>
                 <button class="btn secondary small admin-remove-btn" data-post-id="${p.id}">Delete</button>
               </div>`
             )
             .join("")
-        : `<div class="admin-evidence-empty">No videos submitted yet.</div>`;
+        : `<div class="admin-evidence-empty">No videos or songs submitted yet.</div>`;
       return `<div class="admin-person${expanded ? " expanded" : ""}" data-user-id="${u.id}">
         <div class="admin-row admin-row-clickable">
-          <div><span class="admin-inline-avatar avatar-you">${initial}</span>${u.displayName}<span class="admin-meta">${lobbyCount} active lobby${lobbyCount === 1 ? "" : "s"} &middot; ${posts.length} video${posts.length === 1 ? "" : "s"} submitted</span></div>
+          <div><span class="admin-inline-avatar avatar-you">${initial}</span>${u.displayName}<span class="admin-meta">${lobbyCount} active lobby${lobbyCount === 1 ? "" : "s"} &middot; ${posts.length} item${posts.length === 1 ? "" : "s"} submitted</span></div>
           <div class="admin-row-actions">
             <button class="btn secondary small admin-expand-btn">Manage ${expanded ? "&#9652;" : "&#9662;"}</button>
             ${isSelf ? "" : `<button class="btn secondary small admin-remove-person-btn">Remove</button>`}
