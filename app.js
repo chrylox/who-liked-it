@@ -708,6 +708,7 @@ async function pollLobby() {
         }
         games(where: {lobby_id: {_eq: $id}}, order_by: {started_at: desc}, limit: 1) {
           id round_count finalized_at
+          participants { id displayName }
           rounds(order_by: {round_number: asc}) {
             id round_number revealed_at is_my_video
             post { video_url }
@@ -972,19 +973,35 @@ function renderLiveRound(game, lob) {
       closeGuessSheet();
       guessToggleBtn.style.display = "flex";
     }
-    renderGuessLineup(lob, round);
+    renderGuessLineup(lob, game, round);
   }
 }
 
-function renderGuessLineup(lob, round) {
+function renderGuessLineup(lob, game, round) {
   lineup.innerHTML = "";
+  // Current members first, then anyone who's since left the lobby but whose
+  // video is used somewhere in this game (game.participants) — otherwise a
+  // round drawn for someone who later left becomes unguessable-correctly,
+  // since the lineup would only ever show who's still around. Doesn't leak
+  // which round is theirs: this is the same aggregate "who's in the pool"
+  // info the lineup always showed, just no longer tied to live membership.
+  const seen = new Set();
+  const suspects = [];
   lob.members.forEach((m) => {
-    const name = m.user_id === currentSession.user.id ? "You" : m.member.displayName;
+    seen.add(m.user_id);
+    suspects.push({ id: m.user_id, name: m.user_id === currentSession.user.id ? "You" : m.member.displayName });
+  });
+  (game.participants || []).forEach((p) => {
+    if (seen.has(p.id)) return;
+    seen.add(p.id);
+    suspects.push({ id: p.id, name: p.displayName });
+  });
+  suspects.forEach((s) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "suspect-row";
-    btn.innerHTML = `${name}<span class="result-icon"></span>`;
-    btn.addEventListener("click", () => submitGuess(round.id, m.user_id));
+    btn.innerHTML = `${s.name}<span class="result-icon"></span>`;
+    btn.addEventListener("click", () => submitGuess(round.id, s.id));
     lineup.appendChild(btn);
   });
 }
